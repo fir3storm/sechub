@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import { Rajdhani, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
+import { Providers } from "@/components/Providers";
+import { auth } from "@/lib/auth";
+
+const rajdhani = Rajdhani({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-display",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
+export const metadata: Metadata = {
+  title: "SecHub — Threat Intelligence Command",
+  description: "Unified cybersecurity intelligence and AI-powered advisory generation",
+};
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+
+  return (
+    <html lang="en" className="dark">
+      <body
+        className={`${rajdhani.variable} ${jetbrainsMono.variable} font-display scanline-overlay`}
+      >
+        <Providers session={session}>{children}</Providers>
+      </body>
+    </html>
+  );
+}

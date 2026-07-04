@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 216 40% 4%;
+    --foreground: 195 80% 92%;
+    --card: 216 35% 7%;
+    --card-foreground: 195 80% 92%;
+    --popover: 216 35% 7%;
+    --popover-foreground: 195 80% 92%;
+    --primary: 187 92% 48%;
+    --primary-foreground: 216 40% 4%;
+    --secondary: 216 30% 12%;
+    --secondary-foreground: 195 60% 85%;
+    --muted: 216 25% 14%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 187 60% 15%;
+    --accent-foreground: 187 92% 68%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 187 40% 18%;
+    --input: 216 30% 12%;
+    --ring: 187 92% 48%;
+    --radius: 0.25rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-mono-cyber {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  .cyber-panel {
+    @apply relative overflow-visible rounded-sm border border-cyan-500/20 bg-card/80 backdrop-blur-sm;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.05),
+      inset 0 1px 0 rgba(34, 211, 238, 0.08);
+  }
+
+  .cyber-panel::before {
+    content: "";
+    @apply pointer-events-none absolute left-0 top-0 h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+  }
+
+  .cyber-panel-hover {
+    @apply cyber-panel transition-all duration-300;
+  }
+
+  .cyber-panel-hover:hover {
+    @apply border-cyan-400/40;
+    box-shadow:
+      0 0 20px rgba(34, 211, 238, 0.08),
+      0 0 0 1px rgba(34, 211, 238, 0.15),
+      inset 0 1px 0 rgba(34, 211, 238, 0.12);
+  }
+
+  .cyber-corner {
+    @apply pointer-events-none absolute h-3 w-3 border-cyan-400/60;
+  }
+
+  .cyber-corner-tl {
+    @apply cyber-corner left-0 top-0 border-l-2 border-t-2;
+  }
+
+  .cyber-corner-tr {
+    @apply cyber-corner right-0 top-0 border-r-2 border-t-2;
+  }
+
+  .cyber-corner-bl {
+    @apply cyber-corner bottom-0 left-0 border-b-2 border-l-2;
+  }
+
+  .cyber-corner-br {
+    @apply cyber-corner bottom-0 right-0 border-b-2 border-r-2;
+  }
+
+  .cyber-glow-text {
+    text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full;
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .status-dot-pulse {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .threat-critical {
+    @apply border-red-500/50 bg-red-950/40 text-red-400;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+  }
+
+  .threat-high {
+    @apply border-orange-500/40 bg-orange-950/30 text-orange-400;
+  }
+
+  .threat-medium {
+    @apply border-amber-500/40 bg-amber-950/30 text-amber-400;
+  }
+
+  .threat-low {
+    @apply border-cyan-500/40 bg-cyan-950/30 text-cyan-400;
+  }
+
+  .threat-info {
+    @apply border-slate-500/40 bg-slate-900/50 text-slate-400;
+  }
+
+  .cve-badge {
+    @apply font-mono-cyber rounded-sm border border-cyan-500/30 bg-cyan-950/40 px-2 py-0.5 text-xs text-cyan-300;
+  }
+
+  .nav-rail-glow {
+    box-shadow: inset -1px 0 0 rgba(34, 211, 238, 0.15), 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.scanline-overlay::after {
+  content: "";
+  @apply pointer-events-none fixed inset-0 z-50 opacity-[0.02];
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(34, 211, 238, 0.4) 2px,
+    rgba(34, 211, 238, 0.4) 4px
+  );
+}
