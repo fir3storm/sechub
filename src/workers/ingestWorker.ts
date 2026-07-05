@@ -4,8 +4,11 @@ import { purgeOldNews } from "@/lib/ingestion/retention";
 import { rescheduleIngestJob } from "@/lib/ingestion/schedule";
 import { ingestConnection } from "@/lib/ingestion/queue";
 import { getIngestSettings } from "@/lib/settings";
+import { ensureSearchInfrastructure } from "@/lib/search/ensureSearchInfrastructure";
 
-export function startIngestWorker() {
+export async function startIngestWorker() {
+  await ensureSearchInfrastructure();
+
   const worker = new Worker(
     "ingest",
     async (job) => {
@@ -46,5 +49,8 @@ export function startIngestWorker() {
 }
 
 if (require.main === module) {
-  startIngestWorker();
+  startIngestWorker().catch((err) => {
+    console.error("[ingest] Worker failed to start:", err);
+    process.exit(1);
+  });
 }

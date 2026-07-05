@@ -3,6 +3,7 @@ import { ingestNvdFeed } from "@/lib/ingestion/nvd-ingest";
 import { ingestCisaKev } from "@/lib/ingestion/cisa";
 import { ingestRssFeed } from "@/lib/ingestion/rss";
 import { formatIngestError } from "@/lib/ingestion/errors";
+import { ensureSearchInfrastructure } from "@/lib/search/ensureSearchInfrastructure";
 import { FeedType } from "@prisma/client";
 
 export async function runIngestionForFeed(feedId: string, daysBack = 1) {
@@ -10,6 +11,8 @@ export async function runIngestionForFeed(feedId: string, daysBack = 1) {
   if (!feed || !feed.enabled) {
     throw new Error("Feed not found or disabled");
   }
+
+  await ensureSearchInfrastructure();
 
   try {
     let result: Record<string, number> = {};
