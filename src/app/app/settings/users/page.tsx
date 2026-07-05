@@ -26,6 +26,76 @@ interface User {
 
 const ROLES = ["Viewer", "Analyst", "Admin", "SuperAdmin"];
 
+function UserRow({ user, onUpdated }: { user: User; onUpdated: () => void }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const updateRole = async (role: string) => {
+    await fetch(`/api/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+    onUpdated();
+  };
+
+  const resetPassword = async () => {
+    if (newPassword.length < 8) return;
+    setResetting(true);
+    await fetch(`/api/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    setNewPassword("");
+    setResetting(false);
+    onUpdated();
+  };
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium">{user.name ?? user.email}</p>
+            <p className="text-sm text-muted-foreground">
+              {user.email} · Joined {format(new Date(user.createdAt), "MMM d, yyyy")}
+            </p>
+          </div>
+          <Select value={user.role} onValueChange={updateRole}>
+            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {ROLES.map((r) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-cyan-500/10 pt-4 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <Label className="text-xs">Reset password (admin)</Label>
+            <Input
+              type="password"
+              placeholder="New password (min 8 chars)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={8}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={resetting || newPassword.length < 8}
+            onClick={resetPassword}
+          >
+            {resetting ? "Saving..." : "Set password"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function UsersSettingsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [form, setForm] = useState({ email: "", name: "", password: "", role: "Viewer" });
@@ -40,15 +110,6 @@ export default function UsersSettingsPage() {
       body: JSON.stringify(form),
     });
     setForm({ email: "", name: "", password: "", role: "Viewer" });
-    load();
-  };
-
-  const updateRole = async (userId: string, role: string) => {
-    await fetch(`/api/users/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role }),
-    });
     load();
   };
 
@@ -110,24 +171,7 @@ export default function UsersSettingsPage() {
 
       <div className="space-y-3">
         {users.map((user) => (
-          <Card key={user.id}>
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <p className="font-medium">{user.name ?? user.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  {user.email} · Joined {format(new Date(user.createdAt), "MMM d, yyyy")}
-                </p>
-              </div>
-              <Select value={user.role} onValueChange={(v) => updateRole(user.id, v)}>
-                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          <UserRow key={user.id} user={user} onUpdated={load} />
         ))}
       </div>
     </div>

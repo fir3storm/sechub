@@ -21,12 +21,13 @@ async function main() {
       name: "Super Admin",
       passwordHash,
       role: Role.SuperAdmin,
+      mustChangePassword: true,
     },
   });
 
   console.log("Super admin created:");
   console.log("  Email:    admin@sechub.local");
-  console.log("  Password: admin123");
+  console.log("  Password: admin123 (change on first login at Settings → Account)");
 }
 
 main()

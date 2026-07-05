@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       passwordHash,
       role: body.role,
+      mustChangePassword: true,
     },
     select: { id: true, email: true, name: true, role: true, createdAt: true },
   });

@@ -10,6 +10,7 @@ import type { Role } from "@prisma/client";
 declare module "next-auth" {
   interface User {
     role: Role;
+    mustChangePassword?: boolean;
   }
   interface Session {
     user: {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       email: string;
       name?: string | null;
       role: Role;
+      mustChangePassword: boolean;
     };
   }
 }
@@ -25,6 +27,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     role: Role;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -67,6 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),

@@ -15,6 +15,7 @@ async function main() {
       name: "Super Admin",
       passwordHash,
       role: Role.SuperAdmin,
+      mustChangePassword: true,
     },
   });
 

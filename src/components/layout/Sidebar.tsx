@@ -11,6 +11,7 @@ import {
   ScrollText,
   LogOut,
   Radio,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Role } from "@prisma/client";
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/app", label: "Command Center", icon: LayoutDashboard, minRole: Role.Viewer },
   { href: "/app/news", label: "Threat Feed", icon: Newspaper, minRole: Role.Viewer },
   { href: "/app/advisories", label: "Advisories", icon: FileWarning, minRole: Role.Viewer },
+  { href: "/app/account", label: "Account", icon: KeyRound, minRole: Role.Viewer },
   { href: "/app/audit", label: "Audit Trail", icon: ScrollText, minRole: Role.Admin },
   { href: "/app/settings", label: "Systems", icon: Settings, minRole: Role.Admin },
 ];
