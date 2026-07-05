@@ -119,14 +119,14 @@ export default function FeedsSettingsPage() {
       <div className="space-y-4">
         {feeds.map((feed) => (
           <Card key={feed.id}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
+            <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <CardTitle className="text-base">{feed.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="break-all text-sm text-muted-foreground">
                   {feed.type} {feed.url && `· ${feed.url}`}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 <Button
                   size="sm"
                   variant="outline"

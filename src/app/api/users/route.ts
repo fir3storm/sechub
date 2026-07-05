@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { hasMinRole } from "@/lib/rbac";
+import { canAssignRole, hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import { z } from "zod";
@@ -34,7 +34,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const actorRole = session.user.role as Role;
   const body = userSchema.parse(await req.json());
+
+  if (!canAssignRole(actorRole, body.role)) {
+    return NextResponse.json(
+      { error: "You cannot assign that role with your clearance level" },
+      { status: 403 }
+    );
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { email: body.email.toLowerCase() },
+    select: { id: true },
+  });
+  if (existing) {
+    return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+  }
+
   const passwordHash = await bcrypt.hash(body.password, 12);
 
   const user = await prisma.user.create({
@@ -53,6 +70,7 @@ export async function POST(req: NextRequest) {
     action: "user.create",
     entity: "User",
     entityId: user.id,
+    metadata: { email: user.email, role: user.role },
   });
 
   return NextResponse.json(user, { status: 201 });

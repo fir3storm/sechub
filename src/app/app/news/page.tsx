@@ -6,7 +6,7 @@ import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { searchNews } from "@/lib/search/fullTextSearch";
 import { NewsCard } from "@/components/news/NewsCard";
-import { NewsFilters } from "@/components/news/NewsFilters";
+import { NewsFiltersPanel } from "@/components/news/NewsFiltersPanel";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { NewsListClient } from "@/components/news/NewsListClient";
@@ -82,14 +82,14 @@ export default async function NewsPage({
       <div className="grid gap-6 lg:grid-cols-4">
         <div className="lg:col-span-1">
           <Suspense fallback={<div>Loading filters...</div>}>
-            <NewsFilters options={filterOptions} />
+            <NewsFiltersPanel options={filterOptions} />
           </Suspense>
         </div>
-        <div className="lg:col-span-3 space-y-4">
+        <div className="space-y-4 lg:col-span-3">
           <NewsListClient initialArticles={articles} canCreateAdvisory={canCreate} />
 
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <Button
                   key={p}

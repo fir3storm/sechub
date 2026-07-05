@@ -61,7 +61,7 @@ export function NewsCard({
             </span>
           </div>
 
-          <h3 className="font-display text-lg font-semibold leading-snug tracking-wide text-cyan-50">
+          <h3 className="font-display text-base font-semibold leading-snug tracking-wide text-cyan-50 sm:text-lg">
             <Link
               href={`/app/news/${article.id}`}
               className="transition-colors hover:text-cyan-300 hover:underline decoration-cyan-500/40 underline-offset-4"

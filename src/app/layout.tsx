@@ -21,6 +21,12 @@ export const metadata: Metadata = {
   description: "Unified cybersecurity intelligence and AI-powered advisory generation",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 

@@ -37,6 +37,33 @@ export function canManageUsers(role: Role): boolean {
   return hasMinRole(role, Role.Admin);
 }
 
+/** Roles the actor may assign when creating or updating users. */
+export function getAssignableRoles(actorRole: Role): Role[] {
+  if (actorRole === Role.SuperAdmin) {
+    return [Role.Viewer, Role.Analyst, Role.Admin, Role.SuperAdmin];
+  }
+  if (actorRole === Role.Admin) {
+    return [Role.Viewer, Role.Analyst, Role.Admin];
+  }
+  return [];
+}
+
+export function canAssignRole(actorRole: Role, role: Role): boolean {
+  return getAssignableRoles(actorRole).includes(role);
+}
+
+/** Whether actor may change or remove another user account. */
+export function canManageUser(
+  actorRole: Role,
+  actorId: string,
+  target: { id: string; role: Role }
+): boolean {
+  if (!hasMinRole(actorRole, Role.Admin)) return false;
+  if (actorId === target.id) return false;
+  if (target.role === Role.SuperAdmin && actorRole !== Role.SuperAdmin) return false;
+  return ROLE_HIERARCHY[actorRole] >= ROLE_HIERARCHY[target.role];
+}
+
 export function canCreateNews(role: Role): boolean {
   return hasMinRole(role, Role.Analyst);
 }

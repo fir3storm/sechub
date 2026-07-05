@@ -111,7 +111,7 @@ export default async function DashboardPage() {
         subtitle={`Operator: ${session?.user?.name ?? session?.user?.email} · ${format(new Date(), "yyyy-MM-dd HH:mm")} UTC`}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href}>
             <div className={cn("cyber-panel-hover group p-4", stat.glow)}>
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
                   <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-muted-foreground">
                     {stat.label}
                   </p>
-                  <p className={cn("mt-2 font-display text-3xl font-bold", stat.accent)}>
+                  <p className={cn("mt-2 font-display text-2xl font-bold sm:text-3xl", stat.accent)}>
                     {stat.value}
                   </p>
                 </div>

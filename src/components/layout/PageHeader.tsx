@@ -17,7 +17,7 @@ export function PageHeader({ title, subtitle, badge, children }: PageHeaderProps
             {badge}
           </div>
         )}
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-foreground cyber-glow-text">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide text-foreground cyber-glow-text sm:text-3xl">
           {title}
         </h1>
         {subtitle && (
