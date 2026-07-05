@@ -1,3 +1,6 @@
+import { getNvdApiKey } from "@/lib/settings";
+import { parseValidDate } from "@/lib/ingestion/dates";
+
 const NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0";
 
 export interface NvdCveData {
@@ -25,8 +28,6 @@ function parseCpe(cpe: string): { device: string | null; os: string | null } {
   return { device: null, os: null };
 }
 
-import { getNvdApiKey } from "@/lib/settings";
-
 async function nvdHeadersWithKey(): Promise<HeadersInit> {
   const headers: HeadersInit = { Accept: "application/json" };
   const apiKey = await getNvdApiKey();
@@ -45,13 +46,16 @@ async function sleep(ms: number) {
 export async function fetchNvdCve(cveId: string): Promise<NvdCveData | null> {
   const res = await fetch(`${NVD_API}?cveId=${cveId}`, {
     headers: await nvdHeadersWithKey(),
-    next: { revalidate: 3600 },
   });
   if (!res.ok) return null;
 
   const data = await res.json();
   const item = data.vulnerabilities?.[0]?.cve;
   if (!item) return null;
+
+  const publishedAt = parseValidDate(item.published);
+  const lastModified = parseValidDate(item.lastModified);
+  if (!publishedAt || !lastModified) return null;
 
   const descriptions =
     item.descriptions?.find((d: { lang: string }) => d.lang === "en")?.value ?? "";
@@ -84,8 +88,8 @@ export async function fetchNvdCve(cveId: string): Promise<NvdCveData | null> {
     cpeList,
     affectedDevices: [...devices],
     affectedOs: [...osSet],
-    publishedAt: new Date(item.published),
-    lastModified: new Date(item.lastModified),
+    publishedAt,
+    lastModified,
   };
 }
 

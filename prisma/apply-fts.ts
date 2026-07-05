@@ -1,8 +1,21 @@
 import { prisma } from "../src/lib/db";
 import { getDatabaseSchema } from "../src/lib/db-schema";
 
+async function cleanupLegacyFts() {
+  const schemas = ["public", "sechub"];
+  for (const schema of schemas) {
+    await prisma.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS news_article_search_vector_trigger ON "${schema}"."NewsArticle"`
+    );
+    await prisma.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS "${schema}".news_article_search_vector_update()`
+    );
+  }
+}
+
 async function main() {
   const schema = getDatabaseSchema();
+  await cleanupLegacyFts();
 
   const statements = [
     `ALTER TABLE "${schema}"."NewsArticle"
@@ -26,9 +39,16 @@ async function main() {
      BEFORE INSERT OR UPDATE OF title, summary, body, "cveIds", "sourceName", "affectedDevices", "affectedOs"
      ON "${schema}"."NewsArticle"
      FOR EACH ROW
-     EXECUTE FUNCTION "${schema}".news_article_search_vector_update()`,
+     EXECUTE PROCEDURE "${schema}".news_article_search_vector_update()`,
     `UPDATE "${schema}"."NewsArticle"
-     SET title = title
+     SET search_vector =
+       setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
+       setweight(to_tsvector('english', coalesce(body, '')), 'C') ||
+       setweight(to_tsvector('simple', coalesce(array_to_string("cveIds", ' '), '')), 'A') ||
+       setweight(to_tsvector('english', coalesce("sourceName", '')), 'D') ||
+       setweight(to_tsvector('simple', coalesce(array_to_string("affectedDevices", ' '), '')), 'D') ||
+       setweight(to_tsvector('simple', coalesce(array_to_string("affectedOs", ' '), '')), 'D')
      WHERE search_vector IS NULL`,
     `CREATE INDEX IF NOT EXISTS news_article_search_vector_idx
      ON "${schema}"."NewsArticle"

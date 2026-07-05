@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { ingestNvdFeed } from "@/lib/ingestion/nvd-ingest";
 import { ingestCisaKev } from "@/lib/ingestion/cisa";
 import { ingestRssFeed } from "@/lib/ingestion/rss";
+import { formatIngestError } from "@/lib/ingestion/errors";
 import { FeedType } from "@prisma/client";
 
 export async function runIngestionForFeed(feedId: string, daysBack = 1) {
@@ -37,7 +38,7 @@ export async function runIngestionForFeed(feedId: string, daysBack = 1) {
 
     return result;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = formatIngestError(err);
     await prisma.feedSource.update({
       where: { id: feedId },
       data: {
@@ -63,7 +64,7 @@ export async function runAllEnabledFeeds(daysBack = 1) {
         feedId: feed.id,
         name: feed.name,
         status: "error",
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: formatIngestError(err),
       });
     }
   }
