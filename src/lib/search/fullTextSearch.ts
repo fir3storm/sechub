@@ -1,5 +1,6 @@
 import { Prisma, Severity } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getDatabaseSchema } from "@/lib/db-schema";
 import {
   buildNewsOrderBy,
   buildNewsWhere,
@@ -14,6 +15,7 @@ function toArray(val: string | string[] | undefined): string[] {
 }
 
 function buildFtsConditions(params: NewsSearchParams): Prisma.Sql[] {
+  const schema = getDatabaseSchema();
   const conditions: Prisma.Sql[] = [Prisma.sql`na.status != 'archived'`];
 
   const q = params.q?.trim();
@@ -40,8 +42,8 @@ function buildFtsConditions(params: NewsSearchParams): Prisma.Sql[] {
   const categories = toArray(params.category);
   if (categories.length > 0) {
     conditions.push(Prisma.sql`EXISTS (
-      SELECT 1 FROM sechub."NewsArticleCategory" nac
-      INNER JOIN sechub."Category" c ON c.id = nac."categoryId"
+      SELECT 1 FROM ${Prisma.raw(`"${schema}"."NewsArticleCategory"`)} nac
+      INNER JOIN ${Prisma.raw(`"${schema}"."Category"`)} c ON c.id = nac."categoryId"
       WHERE nac."articleId" = na.id AND c.slug IN (${Prisma.join(categories)})
     )`);
   }
@@ -130,6 +132,7 @@ const articleInclude = {
 } satisfies Prisma.NewsArticleInclude;
 
 async function searchNewsWithFullText(params: NewsSearchParams) {
+  const schema = getDatabaseSchema();
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(params.limit ?? "20", 10)));
   const skip = (page - 1) * limit;
@@ -139,14 +142,14 @@ async function searchNewsWithFullText(params: NewsSearchParams) {
   const [idRows, countRows] = await Promise.all([
     prisma.$queryRaw<{ id: string }[]>`
       SELECT na.id
-      FROM sechub."NewsArticle" na
+      FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
       WHERE ${whereClause}
       ORDER BY ${orderClause}
       LIMIT ${limit} OFFSET ${skip}
     `,
     prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*)::bigint AS count
-      FROM sechub."NewsArticle" na
+      FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
       WHERE ${whereClause}
     `,
   ]);

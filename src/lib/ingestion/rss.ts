@@ -39,8 +39,10 @@ export async function ingestRssFeed(
       continue;
     }
 
+    const itemRecord = item as Record<string, unknown>;
+    const contentEncoded = itemRecord["content:encoded"];
     const rawBody =
-      (item as { ["content:encoded"]?: string }).["content:encoded"] ||
+      (typeof contentEncoded === "string" ? contentEncoded : undefined) ||
       item.content ||
       item.contentSnippet ||
       item.summary ||
