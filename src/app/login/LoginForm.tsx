@@ -45,7 +45,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#03060c] p-4">
+    <div className="relative flex min-h-full flex-1 items-center justify-center overflow-hidden bg-[#03060c] p-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.08),transparent_60%)]" />
       <div
         className="pointer-events-none absolute inset-0 opacity-30"

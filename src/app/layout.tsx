@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Rajdhani, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { auth } from "@/lib/auth";
 
 const rajdhani = Rajdhani({
@@ -26,9 +27,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className="dark">
       <body
-        className={`${rajdhani.variable} ${jetbrainsMono.variable} font-display scanline-overlay`}
+        className={`${rajdhani.variable} ${jetbrainsMono.variable} font-display scanline-overlay flex min-h-screen flex-col`}
       >
-        <Providers session={session}>{children}</Providers>
+        <Providers session={session}>
+          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          <SiteFooter />
+        </Providers>
       </body>
     </html>
   );
