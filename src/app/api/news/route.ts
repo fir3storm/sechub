@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { searchNews } from "@/lib/search/fullTextSearch";
+import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 import { writeAuditLog } from "@/lib/audit";
 import { z } from "zod";
 
@@ -70,6 +71,8 @@ export async function POST(req: NextRequest) {
     },
     include: { categories: { include: { category: true } } },
   });
+
+  await refreshNewsArticleSearchVector(article.id);
 
   await writeAuditLog({
     userId: session.user.id,

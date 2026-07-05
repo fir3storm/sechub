@@ -3,6 +3,7 @@ import { fetchNvdCve, cvssToSeverity } from "@/lib/ingestion/nvd";
 import { writeAuditLog } from "@/lib/audit";
 import { parseValidDateOrNow } from "@/lib/ingestion/dates";
 import { formatIngestError } from "@/lib/ingestion/errors";
+import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 
 const CISA_KEV_URL =
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
@@ -83,9 +84,11 @@ export async function ingestCisaKev(): Promise<{
             severity: nvd ? cvssToSeverity(nvd.cvssScore) : "critical",
           },
         });
+        await refreshNewsArticleSearchVector(existing.id);
         updated++;
       } else {
-        await prisma.newsArticle.create({ data: articleData });
+        const createdArticle = await prisma.newsArticle.create({ data: articleData });
+        await refreshNewsArticleSearchVector(createdArticle.id);
         created++;
       }
     } catch (err) {

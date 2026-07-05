@@ -5,6 +5,7 @@ import { fetchNvdCve, cvssToSeverity } from "@/lib/ingestion/nvd";
 import { writeAuditLog } from "@/lib/audit";
 import { parseValidDate } from "@/lib/ingestion/dates";
 import { formatIngestError } from "@/lib/ingestion/errors";
+import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 
 const parser = new Parser();
 
@@ -59,7 +60,7 @@ export async function ingestRssFeed(
         nvd = await fetchNvdCve(cveIds[0]);
       }
 
-      await prisma.newsArticle.create({
+      const createdArticle = await prisma.newsArticle.create({
         data: {
           title: item.title,
           summary: body.slice(0, 500) || item.title,
@@ -80,6 +81,7 @@ export async function ingestRssFeed(
           status: "ingested",
         },
       });
+      await refreshNewsArticleSearchVector(createdArticle.id);
       created++;
     } catch (err) {
       skipped++;

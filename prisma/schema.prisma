@@ -120,6 +120,7 @@ model NewsArticle {
   affectedOs      String[]
   cpeList         String[]
   rawMetadata     Json?
+  search_vector   Unsupported("tsvector")?
   status          ArticleStatus @default(ingested)
   createdById     String?
   createdAt       DateTime      @default(now())

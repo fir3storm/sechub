@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
+import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 import { z } from "zod";
 
 export async function GET(
@@ -70,6 +71,8 @@ export async function PATCH(
     include: { categories: { include: { category: true } } },
   });
 
+  await refreshNewsArticleSearchVector(article.id);
+
   await writeAuditLog({
     userId: session.user.id,
     action: "news.update",
@@ -94,6 +97,8 @@ export async function DELETE(
     where: { id },
     data: { status: "archived" },
   });
+
+  await refreshNewsArticleSearchVector(id);
 
   await writeAuditLog({
     userId: session.user.id,

@@ -1,7 +1,7 @@
 import { prisma } from "../src/lib/db";
 import { getDatabaseSchema } from "../src/lib/db-schema";
 
-async function cleanupLegacyFts() {
+async function dropLegacyTriggers() {
   const schemas = ["public", "sechub"];
   for (const schema of schemas) {
     await prisma.$executeRawUnsafe(
@@ -15,31 +15,11 @@ async function cleanupLegacyFts() {
 
 async function main() {
   const schema = getDatabaseSchema();
-  await cleanupLegacyFts();
+  await dropLegacyTriggers();
 
   const statements = [
     `ALTER TABLE "${schema}"."NewsArticle"
      ADD COLUMN IF NOT EXISTS search_vector tsvector`,
-    `CREATE OR REPLACE FUNCTION "${schema}".news_article_search_vector_update()
-     RETURNS trigger AS $fts$
-     BEGIN
-       NEW.search_vector :=
-         setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A') ||
-         setweight(to_tsvector('english', coalesce(NEW.summary, '')), 'B') ||
-         setweight(to_tsvector('english', coalesce(NEW.body, '')), 'C') ||
-         setweight(to_tsvector('simple', coalesce(array_to_string(NEW."cveIds", ' '), '')), 'A') ||
-         setweight(to_tsvector('english', coalesce(NEW."sourceName", '')), 'D') ||
-         setweight(to_tsvector('simple', coalesce(array_to_string(NEW."affectedDevices", ' '), '')), 'D') ||
-         setweight(to_tsvector('simple', coalesce(array_to_string(NEW."affectedOs", ' '), '')), 'D');
-       RETURN NEW;
-     END;
-     $fts$ LANGUAGE plpgsql`,
-    `DROP TRIGGER IF EXISTS news_article_search_vector_trigger ON "${schema}"."NewsArticle"`,
-    `CREATE TRIGGER news_article_search_vector_trigger
-     BEFORE INSERT OR UPDATE OF title, summary, body, "cveIds", "sourceName", "affectedDevices", "affectedOs"
-     ON "${schema}"."NewsArticle"
-     FOR EACH ROW
-     EXECUTE PROCEDURE "${schema}".news_article_search_vector_update()`,
     `UPDATE "${schema}"."NewsArticle"
      SET search_vector =
        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
@@ -65,7 +45,7 @@ async function main() {
      FROM "${schema}"."NewsArticle"
      WHERE search_vector IS NOT NULL`
   );
-  console.log(`Indexed ${count} articles for full-text search (schema: ${schema}).`);
+  console.log(`Indexed ${count} articles for full-text search (schema: ${schema}, no trigger).`);
 }
 
 main()

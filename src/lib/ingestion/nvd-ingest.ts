@@ -3,6 +3,7 @@ import { cvssToSeverity, fetchNvdCve, fetchRecentNvdCves } from "@/lib/ingestion
 import { writeAuditLog } from "@/lib/audit";
 import { getNvdApiKey } from "@/lib/settings";
 import { formatIngestError } from "@/lib/ingestion/errors";
+import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 
 export async function ingestNvdFeed(
   daysBack = 1
@@ -44,9 +45,11 @@ export async function ingestNvdFeed(
 
       if (existing) {
         await prisma.newsArticle.update({ where: { id: existing.id }, data: articleData });
+        await refreshNewsArticleSearchVector(existing.id);
         updated++;
       } else {
-        await prisma.newsArticle.create({ data: articleData });
+        const createdArticle = await prisma.newsArticle.create({ data: articleData });
+        await refreshNewsArticleSearchVector(createdArticle.id);
         created++;
       }
 
