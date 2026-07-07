@@ -65,12 +65,29 @@ pm2 status
 pm2 logs sechub-web --lines 30
 ```
 
+`pm2:setup` starts **sechub-web** (website) and **sechub-worker** (auto news fetcher).
+The worker registers a BullMQ schedule in Redis and fetches all enabled feeds on
+that interval (default: every 60 minutes — change in **Settings → Integrations**).
+
+```bash
+# After code updates (restarts website + news fetcher)
+cd /opt/sechub && git pull && npm ci && npm run build && npm run pm2:restart
+
+# Verify auto-fetch worker is running
+npm run pm2:check-ingest
+pm2 logs sechub-worker --lines 20
+```
+
+You should see: `Auto news fetcher active — every 60 minutes`
+
 ### Why did it stop?
 
 | Cause | Fix |
 |-------|-----|
 | VPS rebooted | Run `pm2 startup` once (see `npm run pm2:setup`) |
-| Process crashed (OOM / error) | PM2 auto-restarts — check `pm2 logs` |
+| **sechub-worker** not running | `pm2 status` — worker must be **online** |
+| Redis down / wrong `REDIS_URL` | `sudo systemctl start redis-server` |
+| Process crashed (OOM / error) | PM2 auto-restarts — check `pm2 logs sechub-worker` |
 | Started manually in SSH only | Use `npm run pm2:setup` instead of bare `npm start` |
 | Deploy without restart | `npm run pm2:restart` after each deploy |
 

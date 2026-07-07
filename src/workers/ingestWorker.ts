@@ -1,3 +1,4 @@
+import "@/lib/load-env";
 import { Worker } from "bullmq";
 import { runIngestionForFeed, runAllEnabledFeeds } from "@/lib/ingestion/runner";
 import { purgeOldNews } from "@/lib/ingestion/retention";
@@ -12,10 +13,15 @@ export async function startIngestWorker() {
   const worker = new Worker(
     "ingest",
     async (job) => {
+      console.log(`[ingest] Running job: ${job.name} (id=${job.id})`);
+
       if (job.name === "scheduled") {
         const settings = await getIngestSettings();
         const ingestResult = await runAllEnabledFeeds(1);
         const purged = await purgeOldNews(settings.retentionDays);
+        console.log(
+          `[ingest] Scheduled fetch done — feeds: ${ingestResult.length}, purged: ${purged}`
+        );
         return { ingestResult, purged, retentionDays: settings.retentionDays };
       }
       if (job.name === "all") {
@@ -26,7 +32,10 @@ export async function startIngestWorker() {
       }
       throw new Error(`Unknown job: ${job.name}`);
     },
-    { connection: ingestConnection }
+    {
+      connection: ingestConnection,
+      concurrency: 1,
+    }
   );
 
   worker.on("completed", (job) => {
@@ -34,16 +43,24 @@ export async function startIngestWorker() {
   });
 
   worker.on("failed", (job, err) => {
-    console.error(`[ingest] Job ${job?.id} failed:`, err.message);
+    console.error(`[ingest] Job ${job?.id} (${job?.name}) failed:`, err.message);
   });
 
-  rescheduleIngestJob()
-    .then((minutes) => {
-      console.log(`[ingest] Worker started, auto-refresh every ${minutes} minutes`);
-    })
-    .catch((err) => {
-      console.error("[ingest] Failed to register schedule:", err.message);
-    });
+  worker.on("error", (err) => {
+    console.error("[ingest] Worker connection error:", err.message);
+  });
+
+  const minutes = await rescheduleIngestJob();
+  console.log(`[ingest] Auto news fetcher active — every ${minutes} minutes`);
+  console.log(`[ingest] Redis: ${ingestConnection.host}:${ingestConnection.port}/${ingestConnection.db}`);
+
+  const shutdown = async () => {
+    console.log("[ingest] Shutting down worker...");
+    await worker.close();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 
   return worker;
 }
