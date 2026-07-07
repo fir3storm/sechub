@@ -41,19 +41,43 @@ npm run db:seed
 npm run build
 ```
 
-## Run with PM2 (recommended)
+## Run with PM2 (recommended — stays on + survives reboot)
 
 ```bash
 sudo npm install -g pm2
+cd /opt/sechub
+npm run build
+npm run pm2:setup
+```
 
-# Web app
-pm2 start npm --name sechub-web -- start
+`pm2:setup` starts **sechub-web** and **sechub-worker**, runs `pm2 save`, and prints a
+**one-time** `sudo env PATH=... pm2 startup` command — run that command so processes
+auto-start after a VPS reboot.
 
-# Background ingestion worker
-pm2 start npm --name sechub-worker -- run worker
+Set `PORT` in `.env` if not using the default `3002` (must match your Nginx `proxy_pass`).
 
-pm2 save
-pm2 startup
+```bash
+# After code updates
+cd /opt/sechub && git pull && npm ci && npm run build && npm run pm2:restart
+
+# Check status
+pm2 status
+pm2 logs sechub-web --lines 30
+```
+
+### Why did it stop?
+
+| Cause | Fix |
+|-------|-----|
+| VPS rebooted | Run `pm2 startup` once (see `npm run pm2:setup`) |
+| Process crashed (OOM / error) | PM2 auto-restarts — check `pm2 logs` |
+| Started manually in SSH only | Use `npm run pm2:setup` instead of bare `npm start` |
+| Deploy without restart | `npm run pm2:restart` after each deploy |
+
+Also ensure system services survive reboot:
+
+```bash
+sudo systemctl enable postgresql redis-server nginx
 ```
 
 ## Nginx reverse proxy
