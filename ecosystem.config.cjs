@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+const fs = require("fs");
+const path = require("path");
 
 function loadDotEnv(filename = ".env") {
   const envPath = path.join(__dirname, filename);
