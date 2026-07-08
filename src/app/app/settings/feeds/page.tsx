@@ -14,9 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Play, Plus, History } from "lucide-react";
+import { ArrowLeft, Play, Plus, History, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RECOMMENDED_RSS_FEEDS } from "@/lib/ingestion/feeds-catalog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Feed {
   id: string;
@@ -24,6 +25,7 @@ interface Feed {
   type: string;
   url: string | null;
   enabled: boolean;
+  fetchFullPage: boolean;
   lastRunAt: string | null;
   lastRunStatus: string | null;
   lastRunError: string | null;
@@ -55,6 +57,17 @@ export default function FeedsSettingsPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ feedId, backfill, daysBack: backfillDays }),
+    });
+    setRunning(null);
+    load();
+  };
+
+  const triggerEnrich = async (feedId?: string) => {
+    setRunning(feedId ? `enrich-${feedId}` : "enrich");
+    await fetch("/api/ingest/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedId, enrich: true, enrichLimit: 50 }),
     });
     setRunning(null);
     load();
@@ -92,6 +105,15 @@ export default function FeedsSettingsPage() {
     load();
   };
 
+  const toggleFetchFullPage = async (feed: Feed) => {
+    await fetch(`/api/feeds/${feed.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fetchFullPage: !feed.fetchFullPage }),
+    });
+    load();
+  };
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" asChild>
@@ -106,6 +128,10 @@ export default function FeedsSettingsPage() {
         title="Feed Pipeline"
         subtitle={`Auto-refresh every ${refreshMinutes} min · articles older than 60 days are purged`}
       >
+        <Button variant="outline" onClick={() => triggerEnrich()} disabled={!!running}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {running === "enrich" ? "Enriching..." : "Enrich Short Articles"}
+        </Button>
         <Button variant="outline" onClick={() => triggerIngest(undefined, true)} disabled={!!running}>
           <History className="mr-2 h-4 w-4" />
           {running === "backfill" ? "Backfilling..." : `Backfill ${backfillDays} Days`}
@@ -143,14 +169,35 @@ export default function FeedsSettingsPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {feed.type === "RSS" && (
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={feed.fetchFullPage}
+                    onCheckedChange={() => toggleFetchFullPage(feed)}
+                  />
+                  Fetch full article from source URL
+                </label>
+              )}
               <p className="text-xs text-muted-foreground">
                 Last run:{" "}
                 {feed.lastRunAt ? format(new Date(feed.lastRunAt), "PPp") : "Never"}
                 {feed.lastRunStatus && ` · ${feed.lastRunStatus}`}
               </p>
               {feed.lastRunError && (
-                <p className="text-xs text-red-500 mt-1">{feed.lastRunError}</p>
+                <p className="text-xs text-red-500">{feed.lastRunError}</p>
+              )}
+              {feed.type === "RSS" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => triggerEnrich(feed.id)}
+                  disabled={running === `enrich-${feed.id}`}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" />
+                  {running === `enrich-${feed.id}` ? "Enriching..." : "Enrich short articles"}
+                </Button>
               )}
             </CardContent>
           </Card>

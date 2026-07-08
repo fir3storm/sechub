@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { ingestNvdFeed } from "@/lib/ingestion/nvd-ingest";
 import { ingestCisaKev } from "@/lib/ingestion/cisa";
 import { ingestRssFeed } from "@/lib/ingestion/rss";
+import { enrichShortArticles } from "@/lib/ingestion/enrich";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { ensureSearchInfrastructure } from "@/lib/search/ensureSearchInfrastructure";
 import { FeedType } from "@prisma/client";
@@ -26,7 +27,9 @@ export async function runIngestionForFeed(feedId: string, daysBack = 1) {
         break;
       case FeedType.RSS:
         if (!feed.url) throw new Error("RSS feed URL is required");
-        result = await ingestRssFeed(feed.id, feed.url, feed.name, daysBack);
+        result = await ingestRssFeed(feed.id, feed.url, feed.name, daysBack, {
+          fetchFullPage: feed.fetchFullPage,
+        });
         break;
     }
 
@@ -78,4 +81,9 @@ export async function runAllEnabledFeeds(daysBack = 1) {
 /** One-shot backfill for the last N days across all enabled feeds. */
 export async function backfillAllFeeds(daysBack = 60) {
   return runAllEnabledFeeds(daysBack);
+}
+
+/** Re-fetch full article content for existing short articles. */
+export async function enrichAllShortArticles(options?: { limit?: number; feedId?: string }) {
+  return enrichShortArticles(options);
 }

@@ -17,6 +17,10 @@ export const INGEST_SETTING_KEYS = {
   backfillDays: "ingest.backfill_days",
   refreshIntervalMinutes: "ingest.refresh_interval_minutes",
   retentionDays: "ingest.retention_days",
+  summaryMaxChars: "ingest.summary_max_chars",
+  fetchFullPage: "ingest.fetch_full_page",
+  enrichExisting: "ingest.enrich_existing",
+  aiSummarizeAtIngest: "ingest.ai_summarize",
 } as const;
 
 export const MIN_REFRESH_INTERVAL_MINUTES = 30;
@@ -35,6 +39,10 @@ const INGEST_DEFAULTS = {
   backfillDays: "60",
   refreshIntervalMinutes: "60",
   retentionDays: "60",
+  summaryMaxChars: "2000",
+  fetchFullPage: "true",
+  enrichExisting: "true",
+  aiSummarizeAtIngest: "false",
 };
 
 export async function getSetting(key: string): Promise<string | null> {
@@ -84,10 +92,22 @@ export async function getNvdApiKey(): Promise<string | null> {
 }
 
 export async function getIngestSettings() {
-  const [backfillDays, refreshIntervalMinutes, retentionDays] = await Promise.all([
+  const [
+    backfillDays,
+    refreshIntervalMinutes,
+    retentionDays,
+    summaryMaxChars,
+    fetchFullPage,
+    enrichExisting,
+    aiSummarizeAtIngest,
+  ] = await Promise.all([
     getSetting(INGEST_SETTING_KEYS.backfillDays),
     getSetting(INGEST_SETTING_KEYS.refreshIntervalMinutes),
     getSetting(INGEST_SETTING_KEYS.retentionDays),
+    getSetting(INGEST_SETTING_KEYS.summaryMaxChars),
+    getSetting(INGEST_SETTING_KEYS.fetchFullPage),
+    getSetting(INGEST_SETTING_KEYS.enrichExisting),
+    getSetting(INGEST_SETTING_KEYS.aiSummarizeAtIngest),
   ]);
 
   const parsedRefresh = parseInt(
@@ -99,6 +119,10 @@ export async function getIngestSettings() {
     backfillDays: parseInt(backfillDays ?? INGEST_DEFAULTS.backfillDays, 10),
     refreshIntervalMinutes: Math.max(MIN_REFRESH_INTERVAL_MINUTES, parsedRefresh),
     retentionDays: parseInt(retentionDays ?? INGEST_DEFAULTS.retentionDays, 10),
+    summaryMaxChars: parseInt(summaryMaxChars ?? INGEST_DEFAULTS.summaryMaxChars, 10),
+    fetchFullPage: (fetchFullPage ?? INGEST_DEFAULTS.fetchFullPage) === "true",
+    enrichExisting: (enrichExisting ?? INGEST_DEFAULTS.enrichExisting) === "true",
+    aiSummarizeAtIngest: (aiSummarizeAtIngest ?? INGEST_DEFAULTS.aiSummarizeAtIngest) === "true",
   };
 }
 
@@ -124,6 +148,10 @@ export async function getPublicIntegrationsSettings() {
       backfillDays: ingest.backfillDays,
       refreshIntervalMinutes: ingest.refreshIntervalMinutes,
       retentionDays: ingest.retentionDays,
+      summaryMaxChars: ingest.summaryMaxChars,
+      fetchFullPage: ingest.fetchFullPage,
+      enrichExisting: ingest.enrichExisting,
+      aiSummarizeAtIngest: ingest.aiSummarizeAtIngest,
     },
   };
 }

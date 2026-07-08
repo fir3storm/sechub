@@ -4,6 +4,8 @@ import { writeAuditLog } from "@/lib/audit";
 import { parseValidDateOrNow } from "@/lib/ingestion/dates";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
+import { getIngestSettings } from "@/lib/settings";
+import { buildSummary } from "@/lib/ingestion/article-content";
 
 const CISA_KEV_URL =
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
@@ -30,6 +32,7 @@ export async function ingestCisaKev(): Promise<{
 
   const data = await res.json();
   const entries: KevEntry[] = data.vulnerabilities ?? [];
+  const ingestSettings = await getIngestSettings();
   let created = 0;
   let updated = 0;
   let skipped = 0;
@@ -60,7 +63,7 @@ export async function ingestCisaKev(): Promise<{
 
       const articleData = {
         title: `[KEV] ${entry.vulnerabilityName}`,
-        summary: entry.shortDescription.slice(0, 500),
+        summary: buildSummary(entry.shortDescription, ingestSettings.summaryMaxChars, entry.vulnerabilityName),
         body,
         sourceUrl: uniqueUrl,
         sourceName: "CISA KEV",

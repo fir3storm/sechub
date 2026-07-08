@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Bot, Database, KeyRound, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Bot, Database, KeyRound, CheckCircle2, XCircle, Rss } from "lucide-react";
 import { PageHeader, CyberCard } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface IntegrationsState {
   deepseek: {
@@ -19,7 +20,15 @@ interface IntegrationsState {
     hasApiKey: boolean;
   };
   nvd: { hasApiKey: boolean };
-  ingest: { backfillDays: number; refreshIntervalMinutes: number; retentionDays: number };
+  ingest: {
+    backfillDays: number;
+    refreshIntervalMinutes: number;
+    retentionDays: number;
+    summaryMaxChars: number;
+    fetchFullPage: boolean;
+    enrichExisting: boolean;
+    aiSummarizeAtIngest: boolean;
+  };
 }
 
 function KeyStatus({ configured }: { configured: boolean }) {
@@ -81,6 +90,10 @@ export default function IntegrationsSettingsPage() {
           ingest: {
             backfillDays: settings.ingest.backfillDays,
             refreshIntervalMinutes: settings.ingest.refreshIntervalMinutes,
+            summaryMaxChars: settings.ingest.summaryMaxChars,
+            fetchFullPage: settings.ingest.fetchFullPage,
+            enrichExisting: settings.ingest.enrichExisting,
+            aiSummarizeAtIngest: settings.ingest.aiSummarizeAtIngest,
           },
         },
       }),
@@ -314,6 +327,92 @@ export default function IntegrationsSettingsPage() {
           Articles older than {settings.ingest.retentionDays} days are automatically deleted on
           each scheduled refresh.
         </p>
+      </CyberCard>
+
+      <CyberCard title="Article Extraction" icon={Rss}>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label className="font-mono-cyber text-xs uppercase tracking-wider text-cyan-500/80">
+              Summary max length (characters)
+            </Label>
+            <Input
+              type="number"
+              min={200}
+              max={10000}
+              value={settings.ingest.summaryMaxChars}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  ingest: {
+                    ...settings.ingest,
+                    summaryMaxChars: parseInt(e.target.value, 10) || 2000,
+                  },
+                })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum characters for article summaries. Full article body is stored without limit.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={settings.ingest.fetchFullPage}
+                onCheckedChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    ingest: { ...settings.ingest, fetchFullPage: checked === true },
+                  })
+                }
+              />
+              <div>
+                <p className="text-sm font-medium">Fetch full article from source URL</p>
+                <p className="text-xs text-muted-foreground">
+                  When RSS provides only a short teaser, fetch and extract the full article page
+                  using Mozilla Readability.
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={settings.ingest.enrichExisting}
+                onCheckedChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    ingest: { ...settings.ingest, enrichExisting: checked === true },
+                  })
+                }
+              />
+              <div>
+                <p className="text-sm font-medium">Update existing articles with richer content</p>
+                <p className="text-xs text-muted-foreground">
+                  Re-ingest will replace short article bodies when longer content is available.
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={settings.ingest.aiSummarizeAtIngest}
+                onCheckedChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    ingest: { ...settings.ingest, aiSummarizeAtIngest: checked === true },
+                  })
+                }
+              />
+              <div>
+                <p className="text-sm font-medium">AI-generated summaries at ingest</p>
+                <p className="text-xs text-muted-foreground">
+                  Use DeepSeek to write summaries when ingesting articles. Requires a configured
+                  API key.
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
       </CyberCard>
 
       <div className="flex items-center gap-4">

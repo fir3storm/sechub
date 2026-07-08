@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink, FileWarning } from "lucide-react";
 import { SeverityBadge, CveBadge } from "@/components/ui/severity-badge";
 import { CyberCard } from "@/components/layout/PageHeader";
+import { MIN_FULL_ARTICLE_LENGTH } from "@/lib/ingestion/article-content";
 
 function stripHtml(html: string): string {
   return html
@@ -85,7 +86,7 @@ export default async function NewsDetailPage({
         <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
           {bodyText}
         </div>
-        {bodyText.length < 200 && article.sourceUrl && (
+        {bodyText.length < MIN_FULL_ARTICLE_LENGTH && article.sourceUrl && (
           <p className="mt-4 font-mono-cyber text-xs text-amber-400/80">
             // RSS feed provided a short excerpt only — view the original source for the full article.
           </p>

@@ -20,6 +20,7 @@ export async function PATCH(
       name: z.string().optional(),
       url: z.string().optional().nullable(),
       enabled: z.boolean().optional(),
+      fetchFullPage: z.boolean().optional(),
     })
     .parse(await req.json());
 

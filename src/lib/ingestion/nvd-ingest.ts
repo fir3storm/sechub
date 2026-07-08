@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/db";
 import { cvssToSeverity, fetchNvdCve, fetchRecentNvdCves } from "@/lib/ingestion/nvd";
 import { writeAuditLog } from "@/lib/audit";
-import { getNvdApiKey } from "@/lib/settings";
+import { getIngestSettings, getNvdApiKey } from "@/lib/settings";
+import { buildSummary } from "@/lib/ingestion/article-content";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 
 export async function ingestNvdFeed(
   daysBack = 1
 ): Promise<{ created: number; updated: number; skipped: number; total: number }> {
+  const ingestSettings = await getIngestSettings();
   const cveIds = await fetchRecentNvdCves(daysBack);
   let created = 0;
   let updated = 0;
@@ -27,7 +29,7 @@ export async function ingestNvdFeed(
 
       const articleData = {
         title: `${cveId} - NVD Vulnerability`,
-        summary: nvd.description.slice(0, 500),
+        summary: buildSummary(nvd.description, ingestSettings.summaryMaxChars, cveId),
         body: nvd.description,
         sourceUrl: `https://nvd.nist.gov/vuln/detail/${cveId}`,
         sourceName: "NVD",

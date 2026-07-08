@@ -91,3 +91,47 @@ export async function checkAiRateLimit(userId: string): Promise<void> {
     throw new Error("AI generation rate limit exceeded (10 per hour)");
   }
 }
+
+const SUMMARY_SYSTEM_PROMPT = `You are a cybersecurity news summarizer for a SOC platform.
+Write a concise, factual summary of the article in 2-4 sentences.
+Focus on the threat, affected systems, and key mitigations. No markdown.`;
+
+export async function generateArticleSummary(
+  title: string,
+  body: string
+): Promise<string | null> {
+  const settings = await getAISettings();
+  if (!settings.apiKey) return null;
+
+  const excerpt = body.slice(0, 8000);
+
+  try {
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${settings.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 512,
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Title: ${title}\n\nArticle:\n${excerpt}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content || null;
+  } catch {
+    return null;
+  }
+}

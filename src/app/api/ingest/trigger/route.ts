@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
-import { runIngestionForFeed, runAllEnabledFeeds, backfillAllFeeds } from "@/lib/ingestion/runner";
+import {
+  runIngestionForFeed,
+  runAllEnabledFeeds,
+  backfillAllFeeds,
+  enrichAllShortArticles,
+} from "@/lib/ingestion/runner";
 import { getIngestSettings } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
@@ -12,16 +17,26 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { feedId, daysBack, backfill } = body as {
+  const { feedId, daysBack, backfill, enrich, enrichLimit } = body as {
     feedId?: string;
     daysBack?: number;
     backfill?: boolean;
+    enrich?: boolean;
+    enrichLimit?: number;
   };
 
   const ingestDefaults = await getIngestSettings();
   const range = backfill ? (daysBack ?? ingestDefaults.backfillDays) : (daysBack ?? 1);
 
   try {
+    if (enrich) {
+      const result = await enrichAllShortArticles({
+        limit: enrichLimit ?? 50,
+        feedId,
+      });
+      return NextResponse.json({ success: true, enrich: true, result });
+    }
+
     const result = feedId
       ? await runIngestionForFeed(feedId, range)
       : backfill

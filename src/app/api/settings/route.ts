@@ -51,6 +51,10 @@ const integrationsSchema = z.object({
     .object({
       backfillDays: z.number().min(1).max(365).optional(),
       refreshIntervalMinutes: z.number().min(MIN_REFRESH_INTERVAL_MINUTES).max(1440).optional(),
+      summaryMaxChars: z.number().min(200).max(10000).optional(),
+      fetchFullPage: z.boolean().optional(),
+      enrichExisting: z.boolean().optional(),
+      aiSummarizeAtIngest: z.boolean().optional(),
     })
     .optional(),
 });
@@ -100,6 +104,21 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("[settings] Failed to reschedule ingest job:", error);
       }
+    }
+    if (parsed.ingest?.summaryMaxChars) {
+      await setSetting(INGEST_SETTING_KEYS.summaryMaxChars, String(parsed.ingest.summaryMaxChars));
+    }
+    if (parsed.ingest?.fetchFullPage !== undefined) {
+      await setSetting(INGEST_SETTING_KEYS.fetchFullPage, String(parsed.ingest.fetchFullPage));
+    }
+    if (parsed.ingest?.enrichExisting !== undefined) {
+      await setSetting(INGEST_SETTING_KEYS.enrichExisting, String(parsed.ingest.enrichExisting));
+    }
+    if (parsed.ingest?.aiSummarizeAtIngest !== undefined) {
+      await setSetting(
+        INGEST_SETTING_KEYS.aiSummarizeAtIngest,
+        String(parsed.ingest.aiSummarizeAtIngest)
+      );
     }
 
     await writeAuditLog({

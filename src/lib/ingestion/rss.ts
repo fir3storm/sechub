@@ -6,21 +6,40 @@ import { writeAuditLog } from "@/lib/audit";
 import { parseValidDate } from "@/lib/ingestion/dates";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
+import { getIngestSettings } from "@/lib/settings";
+import { buildSummary, extractRssBody, isShortContent } from "@/lib/ingestion/article-content";
+import { delayBetweenFetches, fetchFullArticle } from "@/lib/ingestion/article-extractor";
+import { generateArticleSummary } from "@/lib/ai/deepseek";
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [["content:encoded", "contentEncoded"]],
+  },
+});
+
+export interface RssIngestOptions {
+  fetchFullPage?: boolean;
+}
 
 export async function ingestRssFeed(
   feedId: string,
   url: string,
   sourceName: string,
-  daysBack = 60
-): Promise<{ created: number; skipped: number }> {
+  daysBack = 60,
+  options: RssIngestOptions = {}
+): Promise<{ created: number; updated: number; skipped: number }> {
+  const ingestSettings = await getIngestSettings();
+  const feedFullPage = options.fetchFullPage ?? true;
+  const shouldFetchFullPage = ingestSettings.fetchFullPage && feedFullPage;
+
   const feed = await parser.parseURL(url);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysBack);
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
+  let fetchedCount = 0;
 
   for (const item of feed.items) {
     try {
@@ -35,23 +54,83 @@ export async function ingestRssFeed(
         continue;
       }
 
+      const itemWithEncoded = item as { contentEncoded?: string };
+      const contentEncoded =
+        itemWithEncoded.contentEncoded ??
+        (typeof (item as unknown as Record<string, unknown>)["content:encoded"] === "string"
+          ? ((item as unknown as Record<string, unknown>)["content:encoded"] as string)
+          : undefined);
+
+      const { body: rssBody, source: rssSource, rawLengths } = extractRssBody({
+        contentEncoded,
+        content: item.content,
+        summary: item.summary,
+      });
+
+      let body = rssBody || item.title;
+      let contentSource: string = rssSource;
+
+      if (shouldFetchFullPage && isShortContent(body) && item.link) {
+        if (fetchedCount > 0) await delayBetweenFetches();
+        const fetched = await fetchFullArticle(item.link);
+        fetchedCount++;
+
+        if (fetched && fetched.text.length > body.length) {
+          body = fetched.text;
+          contentSource = "full_page_fetch";
+        }
+      }
+
       const existing = await prisma.newsArticle.findUnique({
         where: { sourceUrl: item.link },
       });
+
       if (existing) {
-        skipped++;
+        if (!ingestSettings.enrichExisting) {
+          skipped++;
+          continue;
+        }
+
+        if (body.length <= existing.body.length) {
+          skipped++;
+          continue;
+        }
+
+        let summary = buildSummary(body, ingestSettings.summaryMaxChars, item.title);
+        if (ingestSettings.aiSummarizeAtIngest) {
+          const aiSummary = await generateArticleSummary(item.title, body);
+          if (aiSummary) summary = aiSummary;
+        }
+
+        const existingMeta =
+          existing.rawMetadata && typeof existing.rawMetadata === "object"
+            ? (existing.rawMetadata as Record<string, unknown>)
+            : {};
+
+        await prisma.newsArticle.update({
+          where: { id: existing.id },
+          data: {
+            summary,
+            body,
+            rawMetadata: JSON.parse(
+              JSON.stringify({
+                ...existingMeta,
+                source: "rss",
+                feedId,
+                rssSource,
+                contentSource,
+                rawLengths,
+                enrichedAt: new Date().toISOString(),
+                item: { title: item.title, link: item.link },
+              })
+            ),
+          },
+        });
+        await refreshNewsArticleSearchVector(existing.id);
+        updated++;
         continue;
       }
 
-      const itemRecord = item as Record<string, unknown>;
-      const contentEncoded = itemRecord["content:encoded"];
-      const rawBody =
-        (typeof contentEncoded === "string" ? contentEncoded : undefined) ||
-        item.content ||
-        item.contentSnippet ||
-        item.summary ||
-        "";
-      const body = rawBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       const text = `${item.title} ${body}`;
       const cveIds = extractCveIds(text);
 
@@ -60,10 +139,16 @@ export async function ingestRssFeed(
         nvd = await fetchNvdCve(cveIds[0]);
       }
 
+      let summary = buildSummary(body, ingestSettings.summaryMaxChars, item.title);
+      if (ingestSettings.aiSummarizeAtIngest && body.length > 200) {
+        const aiSummary = await generateArticleSummary(item.title, body);
+        if (aiSummary) summary = aiSummary;
+      }
+
       const createdArticle = await prisma.newsArticle.create({
         data: {
           title: item.title,
-          summary: body.slice(0, 500) || item.title,
+          summary,
           body: body || item.title,
           sourceUrl: item.link,
           sourceName,
@@ -76,7 +161,14 @@ export async function ingestRssFeed(
           affectedOs: nvd?.affectedOs ?? [],
           cpeList: nvd?.cpeList ?? [],
           rawMetadata: JSON.parse(
-            JSON.stringify({ source: "rss", feedId, item: { title: item.title, link: item.link } })
+            JSON.stringify({
+              source: "rss",
+              feedId,
+              rssSource,
+              contentSource,
+              rawLengths,
+              item: { title: item.title, link: item.link },
+            })
           ),
           status: "ingested",
         },
@@ -93,8 +185,8 @@ export async function ingestRssFeed(
     action: "ingest.rss",
     entity: "FeedSource",
     entityId: feedId,
-    metadata: { created, skipped, url, daysBack },
+    metadata: { created, updated, skipped, url, daysBack, fetchedCount },
   });
 
-  return { created, skipped };
+  return { created, updated, skipped };
 }

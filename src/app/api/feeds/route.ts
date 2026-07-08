@@ -21,6 +21,7 @@ const feedSchema = z.object({
   type: z.nativeEnum(FeedType),
   url: z.string().url().optional().nullable(),
   enabled: z.boolean().default(true),
+  fetchFullPage: z.boolean().default(true),
 });
 
 export async function POST(req: NextRequest) {
