@@ -142,7 +142,7 @@ export default function IntegrationsSettingsPage() {
         subtitle="All keys stored encrypted in the database — no .env editing required"
       />
 
-      <CyberCard title="DeepSeek AI" icon={Bot}>
+      <CyberCard title="Bramhashiv AI" icon={Bot}>
         <div className="mb-4 flex items-center justify-between">
           <KeyStatus configured={settings.deepseek.hasApiKey} />
           {settings.deepseek.hasApiKey && (
@@ -163,15 +163,7 @@ export default function IntegrationsSettingsPage() {
               placeholder={settings.deepseek.hasApiKey ? "••••••••••••  (leave blank to keep)" : "sk-..."}
             />
             <p className="text-xs text-muted-foreground">
-              Get your key at{" "}
-              <a
-                href="https://platform.deepseek.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:underline"
-              >
-                platform.deepseek.com
-              </a>
+              Bramhashiv AI key configured in the platform.
             </p>
           </div>
           <div className="space-y-2">
@@ -406,7 +398,7 @@ export default function IntegrationsSettingsPage() {
               <div>
                 <p className="text-sm font-medium">AI-generated summaries at ingest</p>
                 <p className="text-xs text-muted-foreground">
-                  Use DeepSeek to write summaries when ingesting articles. Requires a configured
+                  Use Bramhashiv AI to write summaries when ingesting articles. Requires a configured
                   API key.
                 </p>
               </div>

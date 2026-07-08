@@ -44,7 +44,7 @@ export async function generateAdvisoryWithAI(
 ): Promise<string> {
   const settings = await getAISettings();
   if (!settings.apiKey) {
-    throw new Error("DeepSeek API key is not configured. Set it in Settings > AI.");
+    throw new Error("Bramhashiv AI API key is not configured. Set it in Settings > AI.");
   }
 
   const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -66,12 +66,12 @@ export async function generateAdvisoryWithAI(
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`DeepSeek API error: ${response.status} ${err}`);
+    throw new Error(`Bramhashiv AI API error: ${response.status} ${err}`);
   }
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error("No content returned from DeepSeek API");
+  if (!content) throw new Error("No content returned from Bramhashiv AI");
   return content;
 }
 

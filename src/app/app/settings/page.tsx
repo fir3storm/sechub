@@ -10,7 +10,7 @@ const settingsLinks = [
   {
     href: "/app/settings/integrations",
     title: "API Keys & Integrations",
-    description: "DeepSeek, NVD, ingestion — all keys in one place",
+    description: "Bramhashiv AI, NVD, ingestion — all keys in one place",
     icon: Bot,
     code: "SYS.KEYS",
   },
