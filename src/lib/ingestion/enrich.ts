@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getIngestSettings } from "@/lib/settings";
-import { buildSummary, isShortContent } from "@/lib/ingestion/article-content";
+import { buildSummary, isShortContent, stripHtmlTags } from "@/lib/ingestion/article-content";
 import { delayBetweenFetches, fetchFullArticle } from "@/lib/ingestion/article-extractor";
 import { generateArticleSummary } from "@/lib/ai/deepseek";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
@@ -45,7 +45,7 @@ export async function enrichShortArticles(options?: {
       const fetched = await fetchFullArticle(article.sourceUrl!);
       if (enriched + skipped + failed > 0) await delayBetweenFetches(800);
 
-      if (!fetched || fetched.text.length <= article.body.length) {
+      if (!fetched || fetched.text.length <= stripHtmlTags(article.body).length) {
         skipped++;
         continue;
       }
@@ -56,6 +56,8 @@ export async function enrichShortArticles(options?: {
         if (aiSummary) summary = aiSummary;
       }
 
+      const storedBody = fetched.html ?? fetched.text;
+
       const existingMeta =
         article.rawMetadata && typeof article.rawMetadata === "object"
           ? (article.rawMetadata as Record<string, unknown>)
@@ -64,15 +66,15 @@ export async function enrichShortArticles(options?: {
       await prisma.newsArticle.update({
         where: { id: article.id },
         data: {
-          body: fetched.text,
+          body: storedBody,
           summary,
           rawMetadata: JSON.parse(
             JSON.stringify({
               ...existingMeta,
               enrichment: {
                 at: new Date().toISOString(),
-                method: "full_page_fetch",
-                previousBodyLength: article.body.length,
+                method: fetched.html ? "full_page_fetch_html" : "full_page_fetch",
+                previousBodyLength: stripHtmlTags(article.body).length,
                 newBodyLength: fetched.text.length,
                 wordCount: fetched.wordCount,
               },

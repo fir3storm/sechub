@@ -9,9 +9,18 @@ const USER_AGENT =
 
 export interface FetchArticleResult {
   text: string;
+  html: string | null;
   title: string | null;
   excerpt: string | null;
   wordCount: number;
+}
+
+function normalizeExtractedText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export async function fetchFullArticle(url: string): Promise<FetchArticleResult | null> {
@@ -58,14 +67,15 @@ export async function fetchFullArticle(url: string): Promise<FetchArticleResult 
       return extractFallbackText(html, url);
     }
 
-    const text = article.textContent.replace(/\s+/g, " ").trim();
+    const text = normalizeExtractedText(article.textContent);
     if (text.length < 100) return null;
 
     return {
       text,
+      html: article.content ?? null,
       title: article.title ?? null,
       excerpt: article.excerpt ?? null,
-      wordCount: text.split(/\s+/).length,
+      wordCount: text.split(/\s+/).filter(Boolean).length,
     };
   } catch (err) {
     if (err instanceof Error && err.name !== "AbortError") {
@@ -85,15 +95,28 @@ function extractFallbackText(html: string, url: string): FetchArticleResult | nu
   for (const sel of selectors) {
     const el = doc.querySelector(sel);
     if (el?.textContent && el.textContent.trim().length > 200) {
-      const text = el.textContent.replace(/\s+/g, " ").trim();
-      return { text, title: doc.title || null, excerpt: null, wordCount: text.split(/\s+/).length };
+      const text = normalizeExtractedText(el.textContent);
+      const innerHtml = el.innerHTML?.trim();
+      return {
+        text,
+        html: innerHtml && innerHtml.length > 200 ? innerHtml : null,
+        title: doc.title || null,
+        excerpt: null,
+        wordCount: text.split(/\s+/).filter(Boolean).length,
+      };
     }
   }
 
   const bodyText = stripHtmlTags(doc.body?.innerHTML ?? "");
   if (bodyText.length < 200) return null;
 
-  return { text: bodyText, title: doc.title || null, excerpt: null, wordCount: bodyText.split(/\s+/).length };
+  return {
+    text: bodyText,
+    html: null,
+    title: doc.title || null,
+    excerpt: null,
+    wordCount: bodyText.split(/\s+/).filter(Boolean).length,
+  };
 }
 
 /** Polite delay between consecutive full-page fetches. */

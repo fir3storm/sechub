@@ -136,6 +136,78 @@
   .nav-rail-glow {
     box-shadow: inset -1px 0 0 rgba(34, 211, 238, 0.15), 4px 0 24px rgba(0, 0, 0, 0.5);
   }
+
+  .article-lead {
+    @apply relative m-0 rounded-sm border-l-4 border-cyan-400/70 bg-gradient-to-r from-cyan-950/50 to-transparent py-4 pl-6 pr-4;
+  }
+
+  .article-lead p {
+    @apply m-0 text-base font-medium leading-relaxed text-cyan-100/90 sm:text-lg;
+  }
+
+  .prose-cyber {
+    @apply prose prose-invert max-w-none;
+    --tw-prose-body: theme("colors.slate.300");
+    --tw-prose-headings: theme("colors.cyan.50");
+    --tw-prose-lead: theme("colors.slate.300");
+    --tw-prose-links: theme("colors.cyan.400");
+    --tw-prose-bold: theme("colors.cyan.100");
+    --tw-prose-bullets: theme("colors.cyan.500");
+    --tw-prose-counters: theme("colors.cyan.500");
+    --tw-prose-hr: theme("colors.cyan.500 / 20%");
+    --tw-prose-quotes: theme("colors.slate.400");
+    --tw-prose-quote-borders: theme("colors.cyan.500 / 40%");
+  }
+
+  .article-reader.prose-cyber > p:first-of-type::first-letter {
+    @apply float-left mr-2 mt-1 font-display text-4xl font-bold leading-none text-cyan-400;
+  }
+
+  .article-reader.prose-cyber h2 {
+    @apply mt-10 border-b border-cyan-500/20 pb-2 font-display text-xl font-semibold tracking-wide text-cyan-50 first:mt-0;
+  }
+
+  .article-reader.prose-cyber h3 {
+    @apply mt-6 font-display text-lg font-medium text-cyan-100/90;
+  }
+
+  .article-reader.prose-cyber p {
+    @apply leading-7 text-slate-300;
+  }
+
+  .article-reader.prose-cyber a {
+    @apply text-cyan-400 underline decoration-cyan-500/40 underline-offset-2 transition-colors hover:text-cyan-300;
+  }
+
+  .article-reader.prose-cyber ul,
+  .article-reader.prose-cyber ol {
+    @apply my-4 space-y-2;
+  }
+
+  .article-reader.prose-cyber li {
+    @apply text-slate-300;
+  }
+
+  .article-reader.prose-cyber li::marker {
+    @apply text-cyan-500;
+  }
+
+  .article-reader.prose-cyber blockquote {
+    @apply border-cyan-500/30 bg-cyan-950/30 not-italic;
+  }
+
+  .article-reader.prose-cyber .article-cve,
+  .article-reader.prose-cyber span.article-cve {
+    @apply cve-badge mx-0.5 inline-block align-baseline text-[11px];
+  }
+
+  .article-reader.prose-cyber strong {
+    @apply font-semibold text-cyan-100/95;
+  }
+
+  .article-reader.prose-cyber img {
+    @apply rounded-sm border border-cyan-500/20;
+  }
 }
 
 @keyframes pulse-glow {

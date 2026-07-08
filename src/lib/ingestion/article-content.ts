@@ -16,7 +16,7 @@ export function stripHtmlTags(html: string): string {
 }
 
 export function isShortContent(text: string): boolean {
-  const trimmed = text.trim();
+  const trimmed = stripHtmlTags(text).trim();
   if (trimmed.length < SHORT_CONTENT_THRESHOLD) return true;
   if (TEASER_SUFFIX_RE.test(trimmed)) return true;
   return false;
@@ -24,7 +24,7 @@ export function isShortContent(text: string): boolean {
 
 /** Build a summary from body text, breaking at sentence boundaries when possible. */
 export function buildSummary(body: string, maxChars: number, fallback = ""): string {
-  const text = body.trim();
+  const text = stripHtmlTags(body).trim();
   if (!text) return fallback;
   if (text.length <= maxChars) return text;
 
@@ -54,6 +54,7 @@ export interface RssItemFields {
 
 export function extractRssBody(item: RssItemFields): {
   body: string;
+  bodyHtml: string | null;
   source: "content:encoded" | "content" | "summary" | "empty";
   rawLengths: Record<string, number>;
 } {
@@ -68,8 +69,11 @@ export function extractRssBody(item: RssItemFields): {
     summary: summary.length,
   };
 
-  const rawBody = contentEncoded || content || summary || "";
-  const body = stripHtmlTags(rawBody);
+  const bodyHtml =
+    contentEncoded ||
+    (content && /<[a-z][\s\S]*>/i.test(content) ? content : null) ||
+    null;
+  const body = stripHtmlTags(contentEncoded || content || summary || "");
 
   const source = contentEncoded
     ? ("content:encoded" as const)
@@ -79,5 +83,5 @@ export function extractRssBody(item: RssItemFields): {
         ? ("summary" as const)
         : ("empty" as const);
 
-  return { body, source, rawLengths };
+  return { body, bodyHtml, source, rawLengths };
 }

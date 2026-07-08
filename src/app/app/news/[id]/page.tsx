@@ -6,19 +6,12 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, FileWarning } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileWarning, Clock, BookOpen } from "lucide-react";
 import { SeverityBadge, CveBadge } from "@/components/ui/severity-badge";
 import { CyberCard } from "@/components/layout/PageHeader";
-import { MIN_FULL_ARTICLE_LENGTH } from "@/lib/ingestion/article-content";
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import { MIN_FULL_ARTICLE_LENGTH, stripHtmlTags } from "@/lib/ingestion/article-content";
+import { getReadingStats } from "@/lib/news/article-format";
+import { ArticleLead, ArticleReader } from "@/components/news/ArticleReader";
 
 export default async function NewsDetailPage({
   params,
@@ -39,77 +32,132 @@ export default async function NewsDetailPage({
   if (!article) notFound();
 
   const canEdit = hasMinRole(session!.user.role as Role, Role.Analyst);
-  const bodyText = article.body.includes("<") ? stripHtml(article.body) : article.body;
+  const plainBody = stripHtmlTags(article.body);
+  const { words, minutes } = getReadingStats(article.body);
+  const isShort = plainBody.length < MIN_FULL_ARTICLE_LENGTH;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-8">
-      <Button variant="ghost" asChild>
+    <div className="mx-auto max-w-3xl space-y-8 pb-12">
+      <Button variant="ghost" asChild className="-ml-2">
         <Link href="/app/news">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Threat Feed
         </Link>
       </Button>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SeverityBadge severity={article.severity} />
-          <span className="font-mono-cyber text-xs uppercase tracking-wider text-cyan-500/70">
-            {article.sourceName}
-          </span>
-          {article.cvssScore != null && (
-            <span className="font-mono-cyber text-xs text-amber-400">CVSS {article.cvssScore}</span>
+      {/* Hero */}
+      <header className="relative overflow-hidden rounded-sm border border-cyan-500/25 bg-gradient-to-br from-cyan-950/40 via-card/90 to-card/80 p-6 sm:p-8">
+        <span className="cyber-corner-tl" />
+        <span className="cyber-corner-br" />
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl"
+          aria-hidden
+        />
+
+        <div className="relative space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <SeverityBadge severity={article.severity} />
+            <span className="rounded-sm border border-cyan-500/30 bg-cyan-950/50 px-2.5 py-0.5 font-mono-cyber text-[10px] uppercase tracking-widest text-cyan-400/90">
+              {article.sourceName}
+            </span>
+            {article.cvssScore != null && (
+              <span className="font-mono-cyber text-xs text-amber-400">CVSS {article.cvssScore}</span>
+            )}
+          </div>
+
+          <h1 className="font-display text-2xl font-bold leading-tight tracking-wide text-cyan-50 sm:text-4xl">
+            {article.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center gap-4 font-mono-cyber text-xs text-muted-foreground">
+            <span>Published {format(new Date(article.publishedAt), "PPP")}</span>
+            <span className="flex items-center gap-1 text-cyan-500/70">
+              <Clock className="h-3 w-3" />
+              {minutes} min read
+            </span>
+            <span className="flex items-center gap-1 text-cyan-500/70">
+              <BookOpen className="h-3 w-3" />
+              {words.toLocaleString()} words
+            </span>
+          </div>
+
+          {article.cveIds.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {article.cveIds.map((cve) => (
+                <CveBadge key={cve} cve={cve} />
+              ))}
+            </div>
           )}
         </div>
-        <h1 className="font-display text-3xl font-bold tracking-wide text-cyan-50">
-          {article.title}
-        </h1>
-        <p className="font-mono-cyber text-sm text-muted-foreground">
-          Published {format(new Date(article.publishedAt), "PPP")}
-        </p>
-      </div>
+      </header>
 
-      {article.cveIds.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {article.cveIds.map((cve) => (
-            <CveBadge key={cve} cve={cve} />
-          ))}
-        </div>
+      {/* Lead summary */}
+      {article.summary && article.summary !== plainBody.slice(0, article.summary.length) && (
+        <section aria-label="Article summary">
+          <p className="mb-3 font-mono-cyber text-[10px] uppercase tracking-[0.2em] text-cyan-500/70">
+            // Intel Brief
+          </p>
+          <ArticleLead summary={article.summary} />
+        </section>
       )}
 
-      <CyberCard title="Summary">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
-          {article.summary}
+      {/* Article body */}
+      <section aria-label="Full article">
+        <p className="mb-4 font-mono-cyber text-[10px] uppercase tracking-[0.2em] text-cyan-500/70">
+          // Full Report
         </p>
-      </CyberCard>
+        <CyberCard className="!p-0 overflow-hidden">
+          <div className="border-b border-cyan-500/10 bg-cyan-950/20 px-6 py-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+              <span className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60">
+                Decrypted content stream
+              </span>
+            </div>
+          </div>
+          <div className="px-6 py-8 sm:px-8">
+            <ArticleReader body={article.body} />
+          </div>
+        </CyberCard>
 
-      <CyberCard title="Full Article">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
-          {bodyText}
-        </div>
-        {bodyText.length < MIN_FULL_ARTICLE_LENGTH && article.sourceUrl && (
-          <p className="mt-4 font-mono-cyber text-xs text-amber-400/80">
-            // RSS feed provided a short excerpt only — view the original source for the full article.
+        {isShort && article.sourceUrl && (
+          <p className="mt-4 rounded-sm border border-amber-500/30 bg-amber-950/20 px-4 py-3 font-mono-cyber text-xs text-amber-400/90">
+            // Limited excerpt — view the original source for the complete article.
           </p>
         )}
-      </CyberCard>
+      </section>
 
       {(article.affectedDevices.length > 0 || article.affectedOs.length > 0) && (
         <CyberCard title="Affected Systems">
-          <div className="space-y-3 text-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
             {article.affectedDevices.length > 0 && (
-              <div>
-                <p className="font-mono-cyber text-xs uppercase tracking-wider text-cyan-500/70">
+              <div className="rounded-sm border border-cyan-500/15 bg-cyan-950/20 p-4">
+                <p className="mb-2 font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70">
                   Devices
                 </p>
-                <p className="text-slate-300">{article.affectedDevices.join(", ")}</p>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  {article.affectedDevices.map((d) => (
+                    <li key={d} className="flex items-center gap-2">
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
+                      {d}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {article.affectedOs.length > 0 && (
-              <div>
-                <p className="font-mono-cyber text-xs uppercase tracking-wider text-cyan-500/70">
+              <div className="rounded-sm border border-cyan-500/15 bg-cyan-950/20 p-4">
+                <p className="mb-2 font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70">
                   Operating Systems
                 </p>
-                <p className="text-slate-300">{article.affectedOs.join(", ")}</p>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  {article.affectedOs.map((os) => (
+                    <li key={os} className="flex items-center gap-2">
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
+                      {os}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -122,7 +170,7 @@ export default async function NewsDetailPage({
             href={article.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-mono-cyber text-sm text-cyan-400 hover:underline"
+            className="inline-flex items-center gap-1.5 font-mono-cyber text-sm text-cyan-400 transition-colors hover:text-cyan-300 hover:underline"
           >
             <ExternalLink className="h-4 w-4" />
             View original source

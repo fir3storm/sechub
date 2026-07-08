@@ -7,7 +7,7 @@ import { parseValidDate } from "@/lib/ingestion/dates";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 import { getIngestSettings } from "@/lib/settings";
-import { buildSummary, extractRssBody, isShortContent } from "@/lib/ingestion/article-content";
+import { buildSummary, extractRssBody, isShortContent, stripHtmlTags } from "@/lib/ingestion/article-content";
 import { delayBetweenFetches, fetchFullArticle } from "@/lib/ingestion/article-extractor";
 import { generateArticleSummary } from "@/lib/ai/deepseek";
 
@@ -61,23 +61,25 @@ export async function ingestRssFeed(
           ? ((item as unknown as Record<string, unknown>)["content:encoded"] as string)
           : undefined);
 
-      const { body: rssBody, source: rssSource, rawLengths } = extractRssBody({
+      const { body: rssPlain, bodyHtml, source: rssSource, rawLengths } = extractRssBody({
         contentEncoded,
         content: item.content,
         summary: item.summary,
       });
 
-      let body = rssBody || item.title;
+      let body = bodyHtml || rssPlain || item.title;
+      let plainLength = (bodyHtml ? rssPlain : body).length;
       let contentSource: string = rssSource;
 
-      if (shouldFetchFullPage && isShortContent(body) && item.link) {
+      if (shouldFetchFullPage && isShortContent(rssPlain || body) && item.link) {
         if (fetchedCount > 0) await delayBetweenFetches();
         const fetched = await fetchFullArticle(item.link);
         fetchedCount++;
 
-        if (fetched && fetched.text.length > body.length) {
-          body = fetched.text;
-          contentSource = "full_page_fetch";
+        if (fetched && fetched.text.length > plainLength) {
+          body = fetched.html ?? fetched.text;
+          plainLength = fetched.text.length;
+          contentSource = fetched.html ? "full_page_fetch_html" : "full_page_fetch";
         }
       }
 
@@ -91,7 +93,7 @@ export async function ingestRssFeed(
           continue;
         }
 
-        if (body.length <= existing.body.length) {
+        if (plainLength <= stripHtmlTags(existing.body).length) {
           skipped++;
           continue;
         }
@@ -131,7 +133,7 @@ export async function ingestRssFeed(
         continue;
       }
 
-      const text = `${item.title} ${body}`;
+      const text = `${item.title} ${stripHtmlTags(body)}`;
       const cveIds = extractCveIds(text);
 
       let nvd = null;
