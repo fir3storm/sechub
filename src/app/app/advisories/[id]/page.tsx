@@ -59,6 +59,11 @@ export default function AdvisoryDetailPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadPdf = () => {
+    if (!advisory?.id) return;
+    window.open(`/api/advisories/${advisory.id}/pdf`, "_blank", "noopener,noreferrer");
+  };
+
   if (!advisory) return <p>Loading...</p>;
 
   const schema = advisory.template?.schema ?? { sections: [] };
@@ -99,6 +104,12 @@ export default function AdvisoryDetailPage() {
           <Button variant="outline" onClick={downloadMarkdown}>
             <Download className="mr-2 h-4 w-4" />
             Export Markdown
+          </Button>
+        )}
+        {aiContent && (
+          <Button variant="outline" onClick={downloadPdf}>
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
           </Button>
         )}
       </div>

@@ -231,3 +231,64 @@
     rgba(34, 211, 238, 0.4) 4px
   );
 }
+
+@layer components {
+  .prose-advisory {
+    @apply prose prose-invert max-w-none;
+    --tw-prose-body: theme("colors.slate.300");
+    --tw-prose-headings: theme("colors.cyan.50");
+    --tw-prose-links: theme("colors.cyan.400");
+    --tw-prose-bold: theme("colors.cyan.100");
+    --tw-prose-bullets: theme("colors.cyan.500");
+    --tw-prose-counters: theme("colors.cyan.500");
+    --tw-prose-hr: theme("colors.cyan.500 / 20%");
+    --tw-prose-quotes: theme("colors.slate.300");
+    --tw-prose-quote-borders: theme("colors.cyan.500 / 35%");
+    --tw-prose-code: theme("colors.cyan.100");
+    --tw-prose-pre-code: theme("colors.cyan.100");
+    --tw-prose-pre-bg: rgba(3, 7, 18, 0.65);
+  }
+
+  .prose-advisory h1,
+  .prose-advisory h2,
+  .prose-advisory h3 {
+    @apply font-display tracking-wide;
+  }
+
+  .prose-advisory h2 {
+    @apply mt-10 border-b border-cyan-500/20 pb-2 text-xl;
+  }
+
+  .prose-advisory a {
+    @apply text-cyan-400 underline decoration-cyan-500/40 underline-offset-2 transition-colors hover:text-cyan-300;
+  }
+
+  .prose-advisory blockquote {
+    @apply border-cyan-500/30 bg-cyan-950/25 not-italic;
+  }
+
+  .prose-advisory pre {
+    @apply border border-cyan-500/20;
+  }
+
+  .prose-advisory code {
+    @apply rounded-sm border border-cyan-500/20 bg-cyan-950/30 px-1.5 py-0.5 font-mono-cyber text-[12px];
+  }
+
+  .prose-advisory pre code {
+    @apply border-0 bg-transparent px-0 py-0;
+  }
+
+  .prose-advisory table {
+    @apply w-full border-collapse overflow-hidden rounded-sm border border-cyan-500/20;
+  }
+
+  .prose-advisory thead {
+    @apply bg-cyan-950/40;
+  }
+
+  .prose-advisory th,
+  .prose-advisory td {
+    @apply border border-cyan-500/15 px-3 py-2;
+  }
+}

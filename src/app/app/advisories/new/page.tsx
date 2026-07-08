@@ -95,6 +95,11 @@ export default function NewAdvisoryPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadPdf = () => {
+    if (!advisoryId) return;
+    window.open(`/api/advisories/${advisoryId}/pdf`, "_blank", "noopener,noreferrer");
+  };
+
   if (!schema) return <p>Loading template...</p>;
 
   return (
@@ -137,6 +142,12 @@ export default function NewAdvisoryPage() {
           <Button variant="outline" onClick={downloadMarkdown}>
             <Download className="mr-2 h-4 w-4" />
             Export Markdown
+          </Button>
+        )}
+        {aiContent && advisoryId && (
+          <Button variant="outline" onClick={downloadPdf}>
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
           </Button>
         )}
       </div>
