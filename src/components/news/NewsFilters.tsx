@@ -123,6 +123,19 @@ export function NewsFilters({ options }: { options: FilterOptions }) {
           </Select>
         </div>
 
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox
+            checked={get("short") === "1" || get("short") === "true"}
+            onCheckedChange={(checked) =>
+              updateParams({ short: checked ? "1" : null })
+            }
+          />
+          <span>
+            Short / stale only
+            <span className="ml-1 block text-xs text-muted-foreground">Body under 400 chars</span>
+          </span>
+        </label>
+
         <div className="space-y-2">
           <Label>Source</Label>
           <Select value={get("source") || "all"} onValueChange={(v) => updateParams({ source: v === "all" ? null : v })}>

@@ -2,10 +2,12 @@
 
 import { format } from "date-fns";
 import Link from "next/link";
+import DOMPurify from "isomorphic-dompurify";
 import { Severity } from "@prisma/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SeverityBadge, CveBadge } from "@/components/ui/severity-badge";
 import { cn } from "@/lib/utils";
+import { Pencil } from "lucide-react";
 
 export interface NewsArticleCardData {
   id: string;
@@ -17,19 +19,32 @@ export interface NewsArticleCardData {
   cveIds: string[];
   cvssScore: number | null;
   categories?: { category: { name: string; slug: string } }[];
+  searchSnippet?: string;
+  isShort?: boolean;
 }
+
+const SNIPPET_PURIFY = {
+  ALLOWED_TAGS: ["mark"],
+  ALLOWED_ATTR: ["class"],
+};
 
 export function NewsCard({
   article,
   selectable,
   selected,
   onSelect,
+  canEdit,
 }: {
   article: NewsArticleCardData;
   selectable?: boolean;
   selected?: boolean;
   onSelect?: (id: string, checked: boolean) => void;
+  canEdit?: boolean;
 }) {
+  const snippetHtml = article.searchSnippet
+    ? DOMPurify.sanitize(article.searchSnippet, SNIPPET_PURIFY)
+    : null;
+
   return (
     <div
       className={cn(
@@ -51,6 +66,11 @@ export function NewsCard({
         <div className="flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge severity={article.severity} />
+            {article.isShort && (
+              <span className="rounded-sm border border-amber-500/40 bg-amber-950/30 px-2 py-0.5 font-mono-cyber text-[10px] uppercase tracking-wider text-amber-400/90">
+                Short
+              </span>
+            )}
             {article.cvssScore != null && (
               <span className="font-mono-cyber text-xs text-amber-400/80">
                 CVSS {article.cvssScore.toFixed(1)}
@@ -59,6 +79,15 @@ export function NewsCard({
             <span className="rounded-sm border border-cyan-500/20 bg-cyan-950/30 px-2 py-0.5 font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70">
               {article.sourceName}
             </span>
+            {canEdit && (
+              <Link
+                href={`/app/news/${article.id}/edit`}
+                className="ml-auto inline-flex items-center gap-1 font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60 opacity-0 transition-opacity hover:text-cyan-400 group-hover:opacity-100"
+              >
+                <Pencil className="h-3 w-3" />
+                Edit
+              </Link>
+            )}
           </div>
 
           <h3 className="font-display text-base font-semibold leading-snug tracking-wide text-cyan-50 sm:text-lg">
@@ -70,7 +99,14 @@ export function NewsCard({
             </Link>
           </h3>
 
-          <p className="line-clamp-2 text-sm text-slate-400">{article.summary}</p>
+          {snippetHtml ? (
+            <p
+              className="line-clamp-2 text-sm text-slate-400 [&_.search-highlight]:rounded-sm [&_.search-highlight]:bg-cyan-500/25 [&_.search-highlight]:px-0.5 [&_.search-highlight]:text-cyan-200"
+              dangerouslySetInnerHTML={{ __html: snippetHtml }}
+            />
+          ) : (
+            <p className="line-clamp-2 text-sm text-slate-400">{article.summary}</p>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 border-t border-cyan-500/10 pt-3">
             <span className="font-mono-cyber text-[10px] text-muted-foreground">

@@ -5,7 +5,8 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { searchNews } from "@/lib/search/fullTextSearch";
-import { NewsCard } from "@/components/news/NewsCard";
+import { buildSearchSnippet } from "@/lib/search/highlights";
+import { stripHtmlTags, MIN_FULL_ARTICLE_LENGTH } from "@/lib/ingestion/article-content";
 import { NewsFiltersPanel } from "@/components/news/NewsFiltersPanel";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -39,13 +40,43 @@ async function getArticles(searchParams: Record<string, string | string[] | unde
     if (v !== undefined) params[k] = v;
   }
 
-  const { articles, total, page, totalPages } = await searchNews({
+  const q = typeof params.q === "string" ? params.q : undefined;
+  const result = await searchNews({
     ...params,
     page: String(searchParams.page ?? "1"),
     limit: "20",
   });
 
-  return { articles, total, page, totalPages };
+  const snippets = "snippets" in result ? result.snippets : new Map<string, string>();
+
+  const articles = result.articles.map((article) => {
+    const plainLen = stripHtmlTags(article.body).length;
+    const dbSnippet = snippets.get(article.id);
+    const searchSnippet =
+      dbSnippet ||
+      (q?.trim() ? buildSearchSnippet(article.title, article.summary, q.trim()) : undefined);
+
+    return {
+      id: article.id,
+      title: article.title,
+      summary: article.summary,
+      publishedAt: article.publishedAt,
+      severity: article.severity,
+      sourceName: article.sourceName,
+      cveIds: article.cveIds,
+      cvssScore: article.cvssScore,
+      categories: article.categories,
+      searchSnippet,
+      isShort: plainLen < MIN_FULL_ARTICLE_LENGTH,
+    };
+  });
+
+  return {
+    articles,
+    total: result.total,
+    page: result.page,
+    totalPages: result.totalPages,
+  };
 }
 
 export default async function NewsPage({
@@ -60,7 +91,7 @@ export default async function NewsPage({
     getArticles(params),
   ]);
 
-  const canCreate = hasMinRole(session!.user.role as Role, Role.Analyst);
+  const canEdit = hasMinRole(session!.user.role as Role, Role.Analyst);
 
   return (
     <div className="space-y-6">
@@ -69,7 +100,7 @@ export default async function NewsPage({
         title="Intelligence Stream"
         subtitle={`${total} signals detected in current filter scope`}
       >
-        {canCreate && (
+        {canEdit && (
           <Button asChild>
             <Link href="/app/news/new">
               <Plus className="mr-2 h-4 w-4" />
@@ -86,7 +117,11 @@ export default async function NewsPage({
           </Suspense>
         </div>
         <div className="space-y-4 lg:col-span-3">
-          <NewsListClient initialArticles={articles} canCreateAdvisory={canCreate} />
+          <NewsListClient
+            initialArticles={articles}
+            canCreateAdvisory={canEdit}
+            canEdit={canEdit}
+          />
 
           {totalPages > 1 && (
             <div className="flex flex-wrap justify-center gap-2">

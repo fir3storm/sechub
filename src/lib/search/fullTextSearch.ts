@@ -99,6 +99,12 @@ function buildFtsConditions(params: NewsSearchParams): Prisma.Sql[] {
     conditions.push(Prisma.sql`lower(na."sourceName") = lower(${params.source})`);
   }
 
+  if (params.short === "1" || params.short === "true") {
+    conditions.push(
+      Prisma.sql`length(regexp_replace(na.body, '<[^>]+>', '', 'g')) < ${400}`
+    );
+  }
+
   return conditions;
 }
 
@@ -138,15 +144,32 @@ async function searchNewsWithFullText(params: NewsSearchParams) {
   const skip = (page - 1) * limit;
   const whereClause = Prisma.join(buildFtsConditions(params), " AND ");
   const orderClause = buildFtsOrderBy(params);
+  const q = params.q?.trim();
+
+  type IdRow = { id: string; snippet?: string | null };
 
   const [idRows, countRows] = await Promise.all([
-    prisma.$queryRaw<{ id: string }[]>`
-      SELECT na.id
-      FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
-      WHERE ${whereClause}
-      ORDER BY ${orderClause}
-      LIMIT ${limit} OFFSET ${skip}
-    `,
+    q
+      ? prisma.$queryRaw<IdRow[]>`
+          SELECT na.id,
+            ts_headline(
+              'english',
+              coalesce(na.summary, na.title),
+              websearch_to_tsquery('english', ${q}),
+              'MaxWords=40, MinWords=8, StartSel=<mark class="search-highlight">, StopSel=</mark>'
+            ) AS snippet
+          FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
+          WHERE ${whereClause}
+          ORDER BY ${orderClause}
+          LIMIT ${limit} OFFSET ${skip}
+        `
+      : prisma.$queryRaw<IdRow[]>`
+          SELECT na.id, NULL::text AS snippet
+          FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
+          WHERE ${whereClause}
+          ORDER BY ${orderClause}
+          LIMIT ${limit} OFFSET ${skip}
+        `,
     prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*)::bigint AS count
       FROM ${Prisma.raw(`"${schema}"."NewsArticle"`)} na
@@ -154,11 +177,14 @@ async function searchNewsWithFullText(params: NewsSearchParams) {
     `,
   ]);
 
+  const snippets = new Map(
+    idRows.filter((r) => r.snippet).map((r) => [r.id, r.snippet as string])
+  );
   const ids = idRows.map((row) => row.id);
   const total = Number(countRows[0]?.count ?? 0);
 
   if (ids.length === 0) {
-    return { articles: [], total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { articles: [], total, page, limit, totalPages: Math.ceil(total / limit), snippets };
   }
 
   const articles = await prisma.newsArticle.findMany({
@@ -169,7 +195,14 @@ async function searchNewsWithFullText(params: NewsSearchParams) {
   const order = new Map(ids.map((id, index) => [id, index]));
   articles.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 
-  return { articles, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return {
+    articles,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    snippets,
+  };
 }
 
 async function searchNewsWithPrisma(params: NewsSearchParams) {
@@ -206,11 +239,11 @@ async function searchNewsWithPrisma(params: NewsSearchParams) {
     prisma.newsArticle.count({ where }),
   ]);
 
-  return { articles, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return { articles, total, page, limit, totalPages: Math.ceil(total / limit), snippets: new Map<string, string>() };
 }
 
 export async function searchNews(params: NewsSearchParams) {
-  if (params.q?.trim()) {
+  if (params.q?.trim() || params.short === "1" || params.short === "true") {
     return searchNewsWithFullText(params);
   }
   return searchNewsWithPrisma(params);

@@ -15,6 +15,8 @@ export interface NewsSearchParams {
   sort?: string;
   page?: string;
   limit?: string;
+  /** Filter articles with plain-text body under 400 chars */
+  short?: string;
 }
 
 function toArray(val: string | string[] | undefined): string[] {
@@ -84,6 +86,9 @@ export function buildNewsWhere(params: NewsSearchParams): Prisma.NewsArticleWher
 
   return where;
 }
+
+/** Plain-text body length under threshold (matches SHORT_CONTENT_THRESHOLD). */
+export const SHORT_BODY_MAX = 400;
 
 export function buildNewsOrderBy(
   sort?: string

@@ -100,3 +100,77 @@ export async function enrichShortArticles(options?: {
 
   return { enriched, skipped, failed };
 }
+
+/** Re-fetch full content for specific article IDs (bulk enrich). */
+export async function enrichArticlesByIds(
+  ids: string[]
+): Promise<{ enriched: number; skipped: number; failed: number }> {
+  if (ids.length === 0) return { enriched: 0, skipped: 0, failed: 0 };
+
+  const settings = await getIngestSettings();
+  const articles = await prisma.newsArticle.findMany({
+    where: { id: { in: ids }, sourceUrl: { not: null } },
+  });
+
+  let enriched = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const article of articles) {
+    try {
+      const fetched = await fetchFullArticle(article.sourceUrl!);
+      if (enriched + skipped + failed > 0) await delayBetweenFetches(800);
+
+      if (!fetched || fetched.text.length <= stripHtmlTags(article.body).length) {
+        skipped++;
+        continue;
+      }
+
+      let summary = buildSummary(fetched.text, settings.summaryMaxChars, article.title);
+      if (settings.aiSummarizeAtIngest) {
+        const aiSummary = await generateArticleSummary(article.title, fetched.text);
+        if (aiSummary) summary = aiSummary;
+      }
+
+      const storedBody = fetched.html ?? fetched.text;
+      const existingMeta =
+        article.rawMetadata && typeof article.rawMetadata === "object"
+          ? (article.rawMetadata as Record<string, unknown>)
+          : {};
+
+      await prisma.newsArticle.update({
+        where: { id: article.id },
+        data: {
+          body: storedBody,
+          summary,
+          rawMetadata: JSON.parse(
+            JSON.stringify({
+              ...existingMeta,
+              enrichment: {
+                at: new Date().toISOString(),
+                method: fetched.html ? "full_page_fetch_html" : "full_page_fetch",
+                previousBodyLength: stripHtmlTags(article.body).length,
+                newBodyLength: fetched.text.length,
+                wordCount: fetched.wordCount,
+              },
+            })
+          ),
+        },
+      });
+      await refreshNewsArticleSearchVector(article.id);
+      await assignArticleCategories(article.id, article.title, storedBody, article.cveIds);
+      enriched++;
+    } catch (err) {
+      failed++;
+      console.warn(`Enrich failed for ${article.id}:`, formatIngestError(err));
+    }
+  }
+
+  await writeAuditLog({
+    action: "ingest.enrich",
+    entity: "NewsArticle",
+    metadata: { enriched, skipped, failed, ids },
+  });
+
+  return { enriched, skipped, failed };
+}

@@ -6,12 +6,12 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, FileWarning, Clock, BookOpen } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileWarning, Clock, BookOpen, Pencil } from "lucide-react";
 import { SeverityBadge, CveBadge } from "@/components/ui/severity-badge";
 import { CyberCard } from "@/components/layout/PageHeader";
 import { MIN_FULL_ARTICLE_LENGTH, stripHtmlTags } from "@/lib/ingestion/article-content";
 import { getReadingStats } from "@/lib/news/article-format";
-import { ArticleLead, ArticleReader } from "@/components/news/ArticleReader";
+import { ArticleDetailClient } from "@/components/news/ArticleDetailClient";
 import { CveEnrichmentPanel } from "@/components/news/CveEnrichmentPanel";
 
 export default async function NewsDetailPage({
@@ -37,8 +37,12 @@ export default async function NewsDetailPage({
   const { words, minutes } = getReadingStats(article.body);
   const isShort = plainBody.length < MIN_FULL_ARTICLE_LENGTH;
 
+  const showLead =
+    Boolean(article.summary) &&
+    article.summary !== plainBody.slice(0, article.summary.length);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-12">
+    <div className="mx-auto max-w-5xl space-y-8 pb-12">
       <Button variant="ghost" asChild className="-ml-2">
         <Link href="/app/news">
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -105,41 +109,18 @@ export default async function NewsDetailPage({
         </div>
       </header>
 
-      {/* Lead summary */}
-      {article.summary && article.summary !== plainBody.slice(0, article.summary.length) && (
-        <section aria-label="Article summary">
-          <p className="mb-3 font-mono-cyber text-[10px] uppercase tracking-[0.2em] text-cyan-500/70">
-            // Intel Brief
-          </p>
-          <ArticleLead summary={article.summary} />
-        </section>
-      )}
+      <ArticleDetailClient
+        body={article.body}
+        sourceUrl={article.sourceUrl}
+        summary={article.summary}
+        showLead={showLead}
+      />
 
-      {/* Article body */}
-      <section aria-label="Full article">
-        <p className="mb-4 font-mono-cyber text-[10px] uppercase tracking-[0.2em] text-cyan-500/70">
-          // Full Report
+      {isShort && article.sourceUrl && (
+        <p className="rounded-sm border border-amber-500/30 bg-amber-950/20 px-4 py-3 font-mono-cyber text-xs text-amber-400/90">
+          // Limited excerpt — view the original source for the complete article.
         </p>
-        <CyberCard className="!p-0 overflow-hidden">
-          <div className="border-b border-cyan-500/10 bg-cyan-950/20 px-6 py-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-              <span className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60">
-                Decrypted content stream
-              </span>
-            </div>
-          </div>
-          <div className="px-6 py-8 sm:px-8">
-            <ArticleReader body={article.body} sourceUrl={article.sourceUrl} />
-          </div>
-        </CyberCard>
-
-        {isShort && article.sourceUrl && (
-          <p className="mt-4 rounded-sm border border-amber-500/30 bg-amber-950/20 px-4 py-3 font-mono-cyber text-xs text-amber-400/90">
-            // Limited excerpt — view the original source for the complete article.
-          </p>
-        )}
-      </section>
+      )}
 
       {article.cveIds.length > 0 && <CveEnrichmentPanel cveIds={article.cveIds} />}
 
@@ -193,12 +174,20 @@ export default async function NewsDetailPage({
           </a>
         )}
         {canEdit && (
-          <Button asChild className="ml-auto">
-            <Link href={`/app/advisories/new?articles=${article.id}`}>
-              <FileWarning className="mr-2 h-4 w-4" />
-              Create Advisory
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/app/news/${article.id}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Article
+              </Link>
+            </Button>
+            <Button asChild className="ml-auto">
+              <Link href={`/app/advisories/new?articles=${article.id}`}>
+                <FileWarning className="mr-2 h-4 w-4" />
+                Create Advisory
+              </Link>
+            </Button>
+          </>
         )}
       </div>
     </div>

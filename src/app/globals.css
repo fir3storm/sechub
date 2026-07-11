@@ -220,6 +220,33 @@
   .article-reader.prose-cyber figcaption {
     @apply border-t border-cyan-500/15 px-4 py-2 font-mono-cyber text-[11px] text-slate-400;
   }
+
+  .article-mobile .article-reader.prose-cyber {
+    @apply text-[15px] leading-relaxed;
+  }
+
+  @media (max-width: 640px) {
+    .article-mobile .article-reader.prose-cyber h2 {
+      @apply mt-6 text-lg;
+    }
+
+    .article-mobile .article-reader.prose-cyber h3 {
+      @apply mt-4 text-base;
+    }
+
+    .article-mobile .article-reader.prose-cyber p {
+      @apply leading-6;
+    }
+
+    .article-mobile .article-reader.prose-cyber > p:first-of-type::first-letter {
+      @apply text-3xl;
+    }
+  }
+
+  mark.search-highlight,
+  .search-highlight {
+    @apply rounded-sm bg-cyan-500/25 px-0.5 text-cyan-200;
+  }
 }
 
 @keyframes pulse-glow {

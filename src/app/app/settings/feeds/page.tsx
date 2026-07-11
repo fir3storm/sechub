@@ -31,8 +31,20 @@ interface Feed {
   lastRunError: string | null;
 }
 
+interface FeedQualityStat {
+  feedId: string;
+  feedName: string;
+  feedType: string;
+  articleCount: number;
+  avgBodyLength: number;
+  fullFetchRate: number;
+  enrichedCount: number;
+  shortCount: number;
+}
+
 export default function FeedsSettingsPage() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
+  const [qualityStats, setQualityStats] = useState<FeedQualityStat[]>([]);
   const [running, setRunning] = useState<string | null>(null);
   const [newFeed, setNewFeed] = useState({ name: "", type: "RSS", url: "" });
 
@@ -42,6 +54,10 @@ export default function FeedsSettingsPage() {
   const load = () =>
     Promise.all([
       fetch("/api/feeds").then((r) => r.json()).then(setFeeds),
+      fetch("/api/feeds/stats")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setQualityStats)
+        .catch(() => setQualityStats([])),
       fetch("/api/settings?section=integrations")
         .then((r) => r.json())
         .then((s) => {
@@ -114,6 +130,8 @@ export default function FeedsSettingsPage() {
     load();
   };
 
+  const statFor = (feedId: string) => qualityStats.find((s) => s.feedId === feedId);
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" asChild>
@@ -143,7 +161,9 @@ export default function FeedsSettingsPage() {
       </PageHeader>
 
       <div className="space-y-4">
-        {feeds.map((feed) => (
+        {feeds.map((feed) => {
+          const stat = statFor(feed.id);
+          return (
           <Card key={feed.id}>
             <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -170,6 +190,26 @@ export default function FeedsSettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {stat && stat.articleCount > 0 && (
+                <div className="grid grid-cols-2 gap-2 rounded-sm border border-cyan-500/10 bg-cyan-950/20 p-3 sm:grid-cols-4">
+                  <div>
+                    <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60">Avg length</p>
+                    <p className="text-sm font-medium text-cyan-100">{stat.avgBodyLength.toLocaleString()} chars</p>
+                  </div>
+                  <div>
+                    <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60">Full fetch</p>
+                    <p className="text-sm font-medium text-cyan-100">{stat.fullFetchRate}%</p>
+                  </div>
+                  <div>
+                    <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/60">Enriched</p>
+                    <p className="text-sm font-medium text-cyan-100">{stat.enrichedCount}</p>
+                  </div>
+                  <div>
+                    <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-amber-500/60">Short</p>
+                    <p className="text-sm font-medium text-amber-400/90">{stat.shortCount}</p>
+                  </div>
+                </div>
+              )}
               {feed.type === "RSS" && (
                 <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                   <Checkbox
@@ -201,7 +241,8 @@ export default function FeedsSettingsPage() {
               )}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <Card>

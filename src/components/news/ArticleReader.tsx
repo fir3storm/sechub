@@ -27,18 +27,36 @@ const PURIFY_CONFIG = {
     "figcaption",
     "img",
   ],
-  ALLOWED_ATTR: ["href", "class", "target", "rel", "src", "alt", "title"],
+  ALLOWED_ATTR: ["href", "class", "target", "rel", "src", "alt", "title", "id"],
   ADD_ATTR: ["target"],
 };
+
+interface HeadingId {
+  id: string;
+  text: string;
+  level: number;
+}
+
+function injectHeadingIds(html: string, headings: HeadingId[]): string {
+  let i = 0;
+  return html.replace(/<(h[23])(\s[^>]*)?>/gi, (_match, tag: string, attrs = "") => {
+    const item = headings[i++];
+    if (!item) return _match;
+    if (/id\s*=/.test(attrs)) return _match;
+    return `<${tag}${attrs} id="${item.id}">`;
+  });
+}
 
 export function ArticleReader({
   body,
   sourceUrl,
   className,
+  headingIds,
 }: {
   body: string;
   sourceUrl?: string | null;
   className?: string;
+  headingIds?: HeadingId[];
 }) {
   const sanitized = useMemo(() => {
     let structured = prepareArticleHtml(body);
@@ -54,13 +72,16 @@ export function ArticleReader({
           })()
         : undefined;
       structured = stripAdsFromHtml(structured, { sourceHost });
+      if (headingIds?.length) {
+        structured = injectHeadingIds(structured, headingIds);
+      }
     }
 
     const clean = DOMPurify.sanitize(structured, PURIFY_CONFIG);
     const withImages = enhanceArticleFigures(proxyArticleImages(clean));
 
     return withImages.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
-  }, [body, sourceUrl]);
+  }, [body, sourceUrl, headingIds]);
 
   return (
     <article
