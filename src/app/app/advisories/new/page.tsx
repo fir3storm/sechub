@@ -27,7 +27,7 @@ import {
   inferThreatTypeFromArticles,
   prefillFromArticles,
 } from "@/lib/advisory/template";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Download } from "lucide-react";
 
 interface TemplateOption {
   id: string;
@@ -53,6 +53,8 @@ export default function NewAdvisoryPage() {
   const [summaryMode, setSummaryMode] = useState<AISummaryMode>("technical");
   const [advisoryId, setAdvisoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(true);
   const [linkedTitles, setLinkedTitles] = useState<string[]>([]);
   const [templateName, setTemplateName] = useState<string>("");
 
@@ -112,6 +114,7 @@ export default function NewAdvisoryPage() {
 
   const save = async (status: "draft" | "published") => {
     setSaving(true);
+    setSaveMsg(null);
     const payload = {
       title,
       templateId,
@@ -135,7 +138,10 @@ export default function NewAdvisoryPage() {
     if (res.ok) {
       const adv = await res.json();
       setAdvisoryId(adv.id);
+      setSaveMsg(status === "published" ? "Published" : "Draft saved — PDF export unlocked");
       if (status === "published") router.push(`/app/advisories/${adv.id}`);
+    } else {
+      setSaveMsg("Save failed");
     }
   };
 
@@ -213,7 +219,23 @@ export default function NewAdvisoryPage() {
         </div>
       )}
 
-      <DesignerForm schema={schema} formData={formData} onChange={setFormData} />
+      <div className="cyber-panel overflow-hidden">
+        {aiContent && (
+          <button
+            type="button"
+            onClick={() => setFormOpen((o) => !o)}
+            className="flex w-full items-center justify-between border-b border-cyan-500/10 px-4 py-3 font-mono-cyber text-xs uppercase tracking-wider text-cyan-500/70 hover:bg-cyan-950/20"
+          >
+            Template fields
+            {formOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        )}
+        {(formOpen || !aiContent) && (
+          <div className="p-4">
+            <DesignerForm schema={schema} formData={formData} onChange={setFormData} />
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t pt-6">
         <AIGenerateButton
@@ -223,7 +245,10 @@ export default function NewAdvisoryPage() {
           formData={formData}
           summaryMode={summaryMode}
           onSummaryModeChange={setSummaryMode}
-          onGenerated={setAiContent}
+          onGenerated={(c) => {
+            setAiContent(c);
+            setFormOpen(false);
+          }}
         />
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button variant="outline" onClick={() => save("draft")} disabled={saving}>
@@ -247,7 +272,11 @@ export default function NewAdvisoryPage() {
         </div>
       </div>
 
-      {aiContent && (
+      {saveMsg && (
+        <p className="font-mono-cyber text-xs text-emerald-400">// {saveMsg}</p>
+      )}
+
+      {aiContent ? (
         <div className="space-y-3">
           <h2 className="font-display text-lg font-semibold uppercase tracking-wider text-cyan-100/90">
             Advisory Preview
@@ -260,6 +289,12 @@ export default function NewAdvisoryPage() {
             summaryMode={summaryMode}
             linkedCount={articleIds.length}
           />
+        </div>
+      ) : (
+        <div className="cyber-panel border-dashed py-12 text-center">
+          <p className="font-mono-cyber text-sm text-muted-foreground">
+            // Generate with AI to see the branded advisory preview
+          </p>
         </div>
       )}
     </div>

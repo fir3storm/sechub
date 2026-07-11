@@ -11,6 +11,7 @@ import { NewsFiltersPanel } from "@/components/news/NewsFiltersPanel";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { NewsListClient } from "@/components/news/NewsListClient";
+import { NewsActiveFilters } from "@/components/news/NewsActiveFilters";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 async function getFilterOptions() {
@@ -92,13 +93,21 @@ export default async function NewsPage({
   ]);
 
   const canEdit = hasMinRole(session!.user.role as Role, Role.Analyst);
+  const shortFilter =
+    params.short === "1" ||
+    params.short === "true" ||
+    (Array.isArray(params.short) && params.short.some((v) => v === "1" || v === "true"));
 
   return (
     <div className="space-y-6">
       <PageHeader
         badge="TI // Threat Feed"
         title="Intelligence Stream"
-        subtitle={`${total} signals detected in current filter scope`}
+        subtitle={
+          shortFilter
+            ? `${total} short/stale articles (under 400 chars)`
+            : `${total} signals detected in current filter scope`
+        }
       >
         {canEdit && (
           <Button asChild>
@@ -117,6 +126,9 @@ export default async function NewsPage({
           </Suspense>
         </div>
         <div className="space-y-4 lg:col-span-3">
+          <Suspense fallback={null}>
+            <NewsActiveFilters />
+          </Suspense>
           <NewsListClient
             initialArticles={articles}
             canCreateAdvisory={canEdit}

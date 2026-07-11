@@ -19,6 +19,7 @@ export default async function DashboardPage() {
     draftAdvisories,
     publishedAdvisories,
     recentCritical,
+    recentAdvisories,
     integrations,
   ] = await Promise.all([
     prisma.newsArticle.count({ where: { status: { not: "archived" } } }),
@@ -40,6 +41,16 @@ export default async function DashboardPage() {
         severity: true,
         publishedAt: true,
         cveIds: true,
+      },
+    }),
+    prisma.advisory.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        updatedAt: true,
       },
     }),
     getPublicIntegrationsSettings(),
@@ -177,19 +188,49 @@ export default async function DashboardPage() {
           )}
         </CyberCard>
 
-        <CyberCard title="System Status" icon={ShieldAlert}>
-          <div className="space-y-4 font-mono-cyber text-xs">
-            {systemStatus.map((s) => (
-              <div key={s.label} className="flex items-center justify-between border-b border-cyan-500/10 pb-2">
-                <span className="text-muted-foreground">{s.label}</span>
-                <span className={cn("flex items-center gap-1.5", s.color)}>
-                  <span className="status-dot bg-current" />
-                  {s.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CyberCard>
+        <div className="space-y-6">
+          <CyberCard title="System Status" icon={ShieldAlert}>
+            <div className="space-y-4 font-mono-cyber text-xs">
+              {systemStatus.map((s) => (
+                <div key={s.label} className="flex items-center justify-between border-b border-cyan-500/10 pb-2">
+                  <span className="text-muted-foreground">{s.label}</span>
+                  <span className={cn("flex items-center gap-1.5", s.color)}>
+                    <span className="status-dot bg-current" />
+                    {s.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CyberCard>
+
+          <CyberCard title="Recent Bulletins" icon={FileWarning}>
+            {recentAdvisories.length === 0 ? (
+              <p className="font-mono-cyber text-sm text-muted-foreground">// No advisories yet</p>
+            ) : (
+              <ul className="space-y-2">
+                {recentAdvisories.map((adv) => (
+                  <li key={adv.id}>
+                    <Link
+                      href={`/app/advisories/${adv.id}`}
+                      className="block rounded-sm border border-transparent px-2 py-1.5 text-sm text-cyan-50 transition-colors hover:border-cyan-500/20 hover:bg-cyan-500/5 hover:text-cyan-300"
+                    >
+                      <span className="line-clamp-1">{adv.title}</span>
+                      <span className="mt-0.5 block font-mono-cyber text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {adv.status} · {format(new Date(adv.updatedAt), "yyyy-MM-dd")}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/app/advisories"
+              className="mt-3 inline-block font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70 hover:text-cyan-400"
+            >
+              View all →
+            </Link>
+          </CyberCard>
+        </div>
       </div>
     </div>
   );

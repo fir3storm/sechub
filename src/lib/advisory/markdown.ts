@@ -22,3 +22,16 @@ export function stripLeadingMarkdownTitle(markdown: string): string {
   }
   return markdown;
 }
+
+/** Plain-text excerpt for list cards (no markdown syntax). */
+export function getAdvisoryExcerpt(content: string, maxLen = 200): string {
+  const clean = cleanAdvisoryMarkdown(content)
+    .replace(/^#+\s+/gm, "")
+    .replace(/\*\*|__|\*|_|`/g, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, maxLen).trim()}…`;
+}

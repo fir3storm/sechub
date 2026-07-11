@@ -94,3 +94,29 @@ export async function PATCH(
 
   return NextResponse.json(advisory);
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || !hasMinRole(session.user.role as Role, Role.Analyst)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const existing = await prisma.advisory.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.advisory.delete({ where: { id } });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    action: "advisory.delete",
+    entity: "Advisory",
+    entityId: id,
+    metadata: { title: existing.title },
+  });
+
+  return NextResponse.json({ success: true });
+}

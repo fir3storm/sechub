@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
@@ -7,13 +6,9 @@ import { Role } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Plus, FileWarning } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AdvisoryCard } from "@/components/advisory/AdvisoryCard";
+import { getAdvisoryExcerpt } from "@/lib/advisory/markdown";
 import { cn } from "@/lib/utils";
-
-const statusStyle: Record<string, string> = {
-  draft: "border-amber-500/40 bg-amber-950/30 text-amber-400",
-  review: "border-cyan-500/40 bg-cyan-950/30 text-cyan-400",
-  published: "border-emerald-500/40 bg-emerald-950/30 text-emerald-400",
-};
 
 export default async function AdvisoriesPage({
   searchParams,
@@ -22,7 +17,7 @@ export default async function AdvisoriesPage({
 }) {
   const session = await auth();
   const { status } = await searchParams;
-  const canCreate = hasMinRole(session!.user.role as Role, Role.Analyst);
+  const canEdit = hasMinRole(session!.user.role as Role, Role.Analyst);
 
   const advisories = await prisma.advisory.findMany({
     where: status ? { status: status as "draft" | "review" | "published" } : undefined,
@@ -33,14 +28,21 @@ export default async function AdvisoriesPage({
     },
   });
 
+  const counts = await prisma.advisory.groupBy({
+    by: ["status"],
+    _count: { id: true },
+  });
+  const countMap = Object.fromEntries(counts.map((c) => [c.status, c._count.id]));
+  const total = counts.reduce((s, c) => s + c._count.id, 0);
+
   return (
     <div className="space-y-6">
       <PageHeader
         badge="IR // Advisory Ops"
         title="Threat Bulletins"
-        subtitle="Security advisories and incident communications"
+        subtitle={`${total} advisories · ${countMap.draft ?? 0} draft · ${countMap.published ?? 0} published`}
       >
-        {canCreate && (
+        {canEdit && (
           <Button asChild>
             <Link href="/app/advisories/new">
               <Plus className="mr-2 h-4 w-4" />
@@ -51,15 +53,23 @@ export default async function AdvisoriesPage({
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">
-        {["", "draft", "review", "published"].map((s) => (
+        {[
+          { key: "", label: "ALL", count: total },
+          { key: "draft", label: "DRAFT", count: countMap.draft ?? 0 },
+          { key: "review", label: "REVIEW", count: countMap.review ?? 0 },
+          { key: "published", label: "PUBLISHED", count: countMap.published ?? 0 },
+        ].map((s) => (
           <Button
-            key={s || "all"}
-            variant={status === s || (!status && !s) ? "default" : "outline"}
+            key={s.key || "all"}
+            variant={status === s.key || (!status && !s.key) ? "default" : "outline"}
             size="sm"
             asChild
           >
-            <Link href={s ? `/app/advisories?status=${s}` : "/app/advisories"}>
-              {s ? s.toUpperCase() : "ALL"}
+            <Link href={s.key ? `/app/advisories?status=${s.key}` : "/app/advisories"}>
+              {s.label}
+              <span className={cn("ml-1.5 rounded-sm px-1.5 py-0.5 text-[10px]", status === s.key || (!status && !s.key) ? "bg-black/20" : "bg-cyan-950/50 text-cyan-500/70")}>
+                {s.count}
+              </span>
             </Link>
           </Button>
         ))}
@@ -70,40 +80,31 @@ export default async function AdvisoriesPage({
           <div className="cyber-panel py-16 text-center">
             <FileWarning className="mx-auto mb-3 h-8 w-8 text-cyan-600/50" />
             <p className="font-mono-cyber text-sm text-muted-foreground">// No bulletins in queue</p>
+            {canEdit && (
+              <Button asChild className="mt-4" variant="outline">
+                <Link href="/app/advisories/new">Create first advisory</Link>
+              </Button>
+            )}
           </div>
         ) : (
           advisories.map((adv) => (
-            <div key={adv.id} className="cyber-panel-hover p-5">
-              <span className="cyber-corner-tl" />
-              <span className="cyber-corner-br" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <Link
-                    href={`/app/advisories/${adv.id}`}
-                    className="font-display text-lg font-semibold tracking-wide text-cyan-50 hover:text-cyan-300"
-                  >
-                    {adv.title}
-                  </Link>
-                  <p className="mt-1 font-mono-cyber text-xs text-muted-foreground">
-                    {adv.createdBy.name ?? adv.createdBy.email} · UPD{" "}
-                    {format(new Date(adv.updatedAt), "yyyy-MM-dd")}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "rounded-sm border px-2 py-0.5 font-mono-cyber text-[10px] uppercase tracking-wider",
-                    statusStyle[adv.status] ?? statusStyle.draft
-                  )}
-                >
-                  {adv.status}
-                </span>
-              </div>
-              {adv.aiGeneratedContent && (
-                <p className="mt-3 line-clamp-2 border-t border-cyan-500/10 pt-3 text-sm text-slate-400">
-                  {adv.aiGeneratedContent.slice(0, 200)}...
-                </p>
-              )}
-            </div>
+            <AdvisoryCard
+              key={adv.id}
+              canEdit={canEdit}
+              advisory={{
+                id: adv.id,
+                title: adv.title,
+                status: adv.status,
+                updatedAt: adv.updatedAt.toISOString(),
+                excerpt: adv.aiGeneratedContent
+                  ? getAdvisoryExcerpt(adv.aiGeneratedContent)
+                  : null,
+                templateName: adv.template?.name ?? null,
+                linkedCount: adv.linkedArticleIds.length,
+                hasAiContent: Boolean(adv.aiGeneratedContent),
+                authorName: adv.createdBy.name ?? adv.createdBy.email,
+              }}
+            />
           ))
         )}
       </div>
