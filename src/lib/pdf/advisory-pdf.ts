@@ -24,6 +24,23 @@ function safeText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+type MarkdownToken = {
+  type?: string;
+  text?: string;
+  raw?: string;
+  tokens?: MarkdownToken[];
+  items?: MarkdownToken[];
+  depth?: number;
+};
+
+function tokenPlainText(tok: MarkdownToken): string {
+  if (typeof tok.text === "string" && tok.text.trim()) return tok.text;
+  if (Array.isArray(tok.tokens) && tok.tokens.length) {
+    return tok.tokens.map(tokenPlainText).join("");
+  }
+  return safeText(tok.raw);
+}
+
 function drawLogo(doc: PDFKit.PDFDocument, x: number, y: number) {
   doc.save();
   doc
@@ -152,7 +169,7 @@ function addPageFooters(doc: PDFKit.PDFDocument, meta: Meta) {
 }
 
 function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string) {
-  const tokens = marked.lexer(markdown ?? "");
+  const tokens = marked.lexer(markdown ?? "") as MarkdownToken[];
 
   const bodyColor = "#cbd5e1";
   const headingColor = "#e2e8f0";
@@ -260,35 +277,30 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string) {
     if (tok.type === "space") continue;
 
     if (tok.type === "heading") {
-      heading(safeText((tok as { text?: string }).text), (tok as { depth?: number }).depth ?? 2);
+      heading(tokenPlainText(tok), tok.depth ?? 2);
       continue;
     }
 
     if (tok.type === "paragraph") {
-      para(safeText((tok as { text?: string }).text));
+      para(tokenPlainText(tok));
       continue;
     }
 
     if (tok.type === "blockquote") {
-      const inner = (tok as { tokens?: { text?: string }[] }).tokens ?? [];
-      const text = inner
-        .map((t) => safeText(t.text))
-        .filter(Boolean)
-        .join("\n");
-      quote(text || safeText((tok as { text?: string }).text));
+      quote(tokenPlainText(tok));
       continue;
     }
 
     if (tok.type === "list") {
-      const items = ((tok as { items?: { text?: string }[] }).items ?? [])
-        .map((it) => safeText(it.text))
+      const items = (tok.items ?? [])
+        .map((it) => tokenPlainText(it))
         .filter(Boolean);
       bullet(items);
       continue;
     }
 
     if (tok.type === "code") {
-      codeBlock(safeText((tok as { text?: string }).text));
+      codeBlock(safeText(tok.text) || safeText(tok.raw));
       continue;
     }
 
@@ -304,8 +316,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string) {
       continue;
     }
 
-    const text =
-      safeText((tok as { text?: string }).text) || safeText((tok as { raw?: string }).raw);
+    const text = tokenPlainText(tok);
     if (text) para(text);
   }
 }
