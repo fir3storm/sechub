@@ -65,11 +65,16 @@ export function AIGenerateButton({
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">AI Summary Mode</Label>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <Label
+          htmlFor="ai-summary-mode"
+          className="shrink-0 text-xs text-muted-foreground whitespace-nowrap"
+        >
+          AI Summary Mode
+        </Label>
         <Select value={mode} onValueChange={(v) => handleModeChange(v as AISummaryMode)}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger id="ai-summary-mode" className="h-10 w-[200px] sm:w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -80,13 +85,11 @@ export function AIGenerateButton({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-2">
         <Button
           type="button"
           onClick={handleGenerate}
           disabled={disabled || loading}
-          className="bg-violet-600 hover:bg-violet-700"
+          className="h-10 bg-violet-600 hover:bg-violet-700"
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -95,8 +98,8 @@ export function AIGenerateButton({
           )}
           Generate with AI
         </Button>
-        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }

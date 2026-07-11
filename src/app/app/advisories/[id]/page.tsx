@@ -127,7 +127,7 @@ export default function AdvisoryDetailPage() {
         <DesignerForm schema={schema} formData={formData} onChange={setFormData} />
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <AIGenerateButton
           advisoryId={advisory.id}
           linkedArticleIds={advisory.linkedArticleIds}
@@ -136,22 +136,24 @@ export default function AdvisoryDetailPage() {
           onSummaryModeChange={setSummaryMode}
           onGenerated={setAiContent}
         />
-        <Button variant="outline" onClick={() => save()}>Save</Button>
-        {advisory.status !== "published" && (
-          <Button onClick={() => save("published")}>Publish</Button>
-        )}
-        {aiContent && (
-          <Button variant="outline" onClick={downloadMarkdown}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Markdown
-          </Button>
-        )}
-        {aiContent && (
-          <Button variant="outline" onClick={downloadPdf}>
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <Button variant="outline" onClick={() => save()}>Save</Button>
+          {advisory.status !== "published" && (
+            <Button onClick={() => save("published")}>Publish</Button>
+          )}
+          {aiContent && (
+            <Button variant="outline" onClick={downloadMarkdown}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Markdown
+            </Button>
+          )}
+          {aiContent && (
+            <Button variant="outline" onClick={downloadPdf}>
+              <Download className="mr-2 h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
+        </div>
       </div>
 
       {aiContent && (
