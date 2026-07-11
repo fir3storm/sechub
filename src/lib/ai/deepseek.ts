@@ -45,6 +45,8 @@ IMPORTANT FORMAT RULES:
 - Use # for the document title once at the top, then ## for each section.
 - Use bullet lists and numbered lists for IOCs, mitigations, and steps.
 - Do not output JSON or HTML.
+- Do NOT repeat form field labels (e.g. "**Classification:**", "**Executive Summary:**") — the PDF header and section headings already cover these. Write content directly under each ## section.
+- Use **bold** only for inline emphasis inside sentences and bullet labels (e.g. "- **Vendor:** Microsoft"), never as standalone duplicate section labels.
 
 Generate a security advisory in markdown based on the following context.
 
