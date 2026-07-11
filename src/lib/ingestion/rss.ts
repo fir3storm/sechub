@@ -10,6 +10,7 @@ import { getIngestSettings } from "@/lib/settings";
 import { buildSummary, extractRssBody, isShortContent, stripHtmlTags } from "@/lib/ingestion/article-content";
 import { delayBetweenFetches, fetchFullArticle } from "@/lib/ingestion/article-extractor";
 import { generateArticleSummary } from "@/lib/ai/deepseek";
+import { stripAdsFromHtml } from "@/lib/news/strip-ads-server";
 
 const parser = new Parser({
   customFields: {
@@ -67,8 +68,20 @@ export async function ingestRssFeed(
         summary: item.summary,
       });
 
-      let body = bodyHtml || rssPlain || item.title;
-      let plainLength = (bodyHtml ? rssPlain : body).length;
+      const sourceHost = (() => {
+        try {
+          return new URL(item.link!).hostname.replace(/^www\./, "");
+        } catch {
+          return undefined;
+        }
+      })();
+
+      const cleanedBodyHtml = bodyHtml
+        ? stripAdsFromHtml(bodyHtml, { sourceHost })
+        : null;
+
+      let body = cleanedBodyHtml || rssPlain || item.title;
+      let plainLength = (cleanedBodyHtml ? stripHtmlTags(cleanedBodyHtml).length : rssPlain.length);
       let contentSource: string = rssSource;
 
       if (shouldFetchFullPage && isShortContent(rssPlain || body) && item.link) {

@@ -1,6 +1,8 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { stripHtmlTags } from "@/lib/ingestion/article-content";
+import { stripAdsFromHtml } from "@/lib/news/strip-ads-server";
+import { stripAdsFromRoot } from "@/lib/news/strip-ads-core";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
@@ -13,6 +15,20 @@ export interface FetchArticleResult {
   title: string | null;
   excerpt: string | null;
   wordCount: number;
+}
+
+function hostFromArticleUrl(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
+function cleanArticleHtml(html: string | null, sourceUrl: string): string | null {
+  if (!html) return null;
+  const cleaned = stripAdsFromHtml(html, { sourceHost: hostFromArticleUrl(sourceUrl) });
+  return cleaned.length > 50 ? cleaned : null;
 }
 
 function normalizeExtractedText(text: string): string {
@@ -60,6 +76,9 @@ export async function fetchFullArticle(url: string): Promise<FetchArticleResult 
 
     const html = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
     const dom = new JSDOM(html, { url });
+    stripAdsFromRoot(dom.window.document.body, {
+      sourceHost: parsedUrl.hostname.replace(/^www\./, ""),
+    });
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
@@ -67,12 +86,16 @@ export async function fetchFullArticle(url: string): Promise<FetchArticleResult 
       return extractFallbackText(html, url);
     }
 
-    const text = normalizeExtractedText(article.textContent);
+    const rawHtml = article.content ?? null;
+    const cleanedHtml = cleanArticleHtml(rawHtml, url);
+    const text = normalizeExtractedText(
+      cleanedHtml ? stripHtmlTags(cleanedHtml) : article.textContent
+    );
     if (text.length < 100) return null;
 
     return {
       text,
-      html: article.content ?? null,
+      html: cleanedHtml,
       title: article.title ?? null,
       excerpt: article.excerpt ?? null,
       wordCount: text.split(/\s+/).filter(Boolean).length,
@@ -97,9 +120,13 @@ function extractFallbackText(html: string, url: string): FetchArticleResult | nu
     if (el?.textContent && el.textContent.trim().length > 200) {
       const text = normalizeExtractedText(el.textContent);
       const innerHtml = el.innerHTML?.trim();
+      const cleanedHtml = cleanArticleHtml(
+        innerHtml && innerHtml.length > 200 ? innerHtml : null,
+        url
+      );
       return {
-        text,
-        html: innerHtml && innerHtml.length > 200 ? innerHtml : null,
+        text: cleanedHtml ? normalizeExtractedText(stripHtmlTags(cleanedHtml)) : text,
+        html: cleanedHtml,
         title: doc.title || null,
         excerpt: null,
         wordCount: text.split(/\s+/).filter(Boolean).length,

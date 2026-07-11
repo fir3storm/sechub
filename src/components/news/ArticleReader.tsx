@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import { prepareArticleHtml } from "@/lib/news/article-format";
+import { stripAdsFromHtml } from "@/lib/news/strip-ads-client";
 import { cn } from "@/lib/utils";
 
 const PURIFY_CONFIG = {
@@ -31,17 +32,33 @@ const PURIFY_CONFIG = {
 
 export function ArticleReader({
   body,
+  sourceUrl,
   className,
 }: {
   body: string;
+  sourceUrl?: string | null;
   className?: string;
 }) {
   const sanitized = useMemo(() => {
-    const structured = prepareArticleHtml(body);
+    let structured = prepareArticleHtml(body);
+
+    if (structured.includes("<")) {
+      const sourceHost = sourceUrl
+        ? (() => {
+            try {
+              return new URL(sourceUrl).hostname.replace(/^www\./, "");
+            } catch {
+              return undefined;
+            }
+          })()
+        : undefined;
+      structured = stripAdsFromHtml(structured, { sourceHost });
+    }
+
     const clean = DOMPurify.sanitize(structured, PURIFY_CONFIG);
 
     return clean.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
-  }, [body]);
+  }, [body, sourceUrl]);
 
   return (
     <article

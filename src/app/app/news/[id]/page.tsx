@@ -116,7 +116,7 @@ export default async function NewsDetailPage({
             </div>
           </div>
           <div className="px-6 py-8 sm:px-8">
-            <ArticleReader body={article.body} />
+            <ArticleReader body={article.body} sourceUrl={article.sourceUrl} />
           </div>
         </CyberCard>
 
