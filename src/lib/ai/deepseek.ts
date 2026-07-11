@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getAISettings } from "@/lib/settings";
 import type { AISummaryMode, FormData } from "@/lib/advisory/template";
+import { cleanAdvisoryMarkdown } from "@/lib/advisory/markdown";
 
 interface ArticleContext {
   title: string;
@@ -25,16 +26,25 @@ const MODE_INSTRUCTIONS: Record<AISummaryMode, string> = {
 function buildAdvisoryPrompt(
   articles: ArticleContext[],
   formData: FormData,
-  mode: AISummaryMode
+  mode: AISummaryMode,
+  templateBlock?: string
 ): string {
   const articleBlock =
     articles.length > 1
-      ? `This is a MERGED bulletin combining ${articles.length} related articles. Synthesize into one cohesive advisory. Deduplicate CVEs and IOCs.`
+      ? `This is a MERGED bulletin combining ${articles.length} related articles. Synthesize into one cohesive advisory. Deduplicate CVEs and IOCs. Use ### sub-headings per source where helpful.`
       : "";
 
   return `${MODE_INSTRUCTIONS[mode]}
 
 ${articleBlock}
+
+${templateBlock ?? "Use standard security advisory sections with ## markdown headings."}
+
+IMPORTANT FORMAT RULES:
+- Output raw markdown only. Do NOT wrap the response in \`\`\`markdown or \`\`\` code fences.
+- Use # for the document title once at the top, then ## for each section.
+- Use bullet lists and numbered lists for IOCs, mitigations, and steps.
+- Do not output JSON or HTML.
 
 Generate a security advisory in markdown based on the following context.
 
@@ -63,7 +73,8 @@ Include actionable mitigation steps and references.`;
 export async function generateAdvisoryWithAI(
   articles: ArticleContext[],
   formData: FormData,
-  mode: AISummaryMode = "technical"
+  mode: AISummaryMode = "technical",
+  templateBlock?: string
 ): Promise<string> {
   const settings = await getAISettings();
   if (!settings.apiKey) {
@@ -82,7 +93,7 @@ export async function generateAdvisoryWithAI(
       temperature: mode === "executive" ? 0.3 : settings.temperature,
       messages: [
         { role: "system", content: settings.systemPrompt },
-        { role: "user", content: buildAdvisoryPrompt(articles, formData, mode) },
+        { role: "user", content: buildAdvisoryPrompt(articles, formData, mode, templateBlock) },
       ],
     }),
   });
@@ -95,7 +106,7 @@ export async function generateAdvisoryWithAI(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error("No content returned from Bramhashiv AI");
-  return content;
+  return cleanAdvisoryMarkdown(content);
 }
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;

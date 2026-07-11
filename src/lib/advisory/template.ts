@@ -504,3 +504,23 @@ export function getClassificationBanner(formData: FormData): string {
   if (typeof c === "string" && c.trim()) return c.trim();
   return "TLP:AMBER — INTERNAL USE ONLY";
 }
+
+/** Section headings the AI must use when generating markdown. */
+export function buildTemplatePromptBlock(
+  schema: AdvisoryTemplateSchema,
+  threatType?: string | null
+): string {
+  const sections = schema.sections
+    .map((s) => {
+      const fields = s.fields.map((f) => f.label).join(", ");
+      return `- ## ${s.title}${fields ? ` — cover: ${fields}` : ""}`;
+    })
+    .join("\n");
+
+  const typeLine =
+    threatType && threatType !== "general"
+      ? `\nThreat-type template: ${THREAT_TYPE_LABELS[threatType as ThreatType] ?? threatType}.`
+      : "";
+
+  return `Use EXACTLY these ## section headings in order (do not skip sections):${typeLine}\n${sections}`;
+}

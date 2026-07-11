@@ -5,7 +5,8 @@ import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { checkAiRateLimit, generateAdvisoryWithAI } from "@/lib/ai/deepseek";
 import { writeAuditLog } from "@/lib/audit";
-import type { AISummaryMode, FormData } from "@/lib/advisory/template";
+import type { AdvisoryTemplateSchema, AISummaryMode, FormData } from "@/lib/advisory/template";
+import { buildTemplatePromptBlock } from "@/lib/advisory/template";
 import { MAX_LINKED_ARTICLES } from "@/lib/advisory/template";
 import { snapshotAdvisoryRevision } from "@/lib/advisory/revisions";
 import { z } from "zod";
@@ -15,6 +16,7 @@ const schema = z.object({
   linkedArticleIds: z.array(z.string()).max(MAX_LINKED_ARTICLES).optional(),
   formData: z.record(z.union([z.string(), z.array(z.string())])),
   summaryMode: z.enum(["executive", "technical", "soc_handoff"]).default("technical"),
+  templateId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -37,9 +39,13 @@ export async function POST(req: NextRequest) {
   const advisoryId = body.advisoryId;
   const summaryMode = body.summaryMode as AISummaryMode;
 
+  let existingAdvisory: { templateId: string | null; linkedArticleIds: string[] } | null = null;
+
   if (advisoryId) {
     const advisory = await prisma.advisory.findUnique({ where: { id: advisoryId } });
     if (!advisory) return NextResponse.json({ error: "Advisory not found" }, { status: 404 });
+
+    existingAdvisory = advisory;
 
     if (linkedArticleIds.length === 0) {
       linkedArticleIds = advisory.linkedArticleIds;
@@ -60,6 +66,19 @@ export async function POST(req: NextRequest) {
     ? await prisma.newsArticle.findMany({ where: { id: { in: linkedArticleIds.slice(0, MAX_LINKED_ARTICLES) } } })
     : [];
 
+  let templateBlock: string | undefined;
+  const templateId = body.templateId ?? existingAdvisory?.templateId ?? undefined;
+
+  if (templateId) {
+    const tmpl = await prisma.advisoryTemplate.findUnique({ where: { id: templateId } });
+    if (tmpl?.schema) {
+      templateBlock = buildTemplatePromptBlock(
+        tmpl.schema as unknown as AdvisoryTemplateSchema,
+        tmpl.threatType
+      );
+    }
+  }
+
   try {
     const content = await generateAdvisoryWithAI(
       articles.map((a) => ({
@@ -73,7 +92,8 @@ export async function POST(req: NextRequest) {
         sourceName: a.sourceName,
       })),
       body.formData as FormData,
-      summaryMode
+      summaryMode,
+      templateBlock
     );
 
     if (advisoryId) {

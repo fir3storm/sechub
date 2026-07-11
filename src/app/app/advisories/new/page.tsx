@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { DesignerForm } from "@/components/advisory/DesignerForm";
 import { AIGenerateButton } from "@/components/advisory/AIGenerateButton";
-import { MarkdownPreview } from "@/components/advisory/MarkdownPreview";
+import { AdvisoryPreview } from "@/components/advisory/AdvisoryPreview";
 import {
   AdvisoryTemplateSchema,
   AISummaryMode,
@@ -54,6 +54,7 @@ export default function NewAdvisoryPage() {
   const [advisoryId, setAdvisoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [linkedTitles, setLinkedTitles] = useState<string[]>([]);
+  const [templateName, setTemplateName] = useState<string>("");
 
   useEffect(() => {
     async function load() {
@@ -88,6 +89,7 @@ export default function NewAdvisoryPage() {
 
       setSchema(selected.schema);
       setTemplateId(selected.id);
+      setTemplateName(selected.name);
       setFormData(data);
     }
     load();
@@ -97,6 +99,7 @@ export default function NewAdvisoryPage() {
     const tmpl = templates.find((t) => t.id === id);
     if (!tmpl) return;
     setTemplateId(id);
+    setTemplateName(tmpl.name);
     setSchema(tmpl.schema);
     setFormData((prev) => {
       const fresh = buildDefaultFormData(tmpl.schema);
@@ -216,6 +219,7 @@ export default function NewAdvisoryPage() {
         <AIGenerateButton
           advisoryId={advisoryId ?? undefined}
           linkedArticleIds={articleIds}
+          templateId={templateId}
           formData={formData}
           summaryMode={summaryMode}
           onSummaryModeChange={setSummaryMode}
@@ -244,9 +248,18 @@ export default function NewAdvisoryPage() {
       </div>
 
       {aiContent && (
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold">AI Preview</h2>
-          <MarkdownPreview content={aiContent} />
+        <div className="space-y-3">
+          <h2 className="font-display text-lg font-semibold uppercase tracking-wider text-cyan-100/90">
+            Advisory Preview
+          </h2>
+          <AdvisoryPreview
+            title={title}
+            content={aiContent}
+            formData={formData}
+            templateName={templateName}
+            summaryMode={summaryMode}
+            linkedCount={articleIds.length}
+          />
         </div>
       )}
     </div>

@@ -330,4 +330,37 @@
   .prose-advisory td {
     @apply border border-cyan-500/15 px-3 py-2;
   }
+
+  .advisory-preview-body .prose-advisory h1 {
+    @apply hidden;
+  }
+
+  .advisory-preview-body .prose-advisory h2 {
+    @apply mt-8 scroll-mt-24 border-b border-cyan-500/25 pb-2 font-display text-lg font-semibold text-cyan-50 first:mt-0;
+  }
+
+  .advisory-preview-body .prose-advisory h3 {
+    @apply mt-5 font-display text-base font-medium text-cyan-100/95;
+  }
+
+  .advisory-preview-body .prose-advisory p {
+    @apply leading-7 text-slate-300;
+  }
+
+  .advisory-preview-body .prose-advisory ul,
+  .advisory-preview-body .prose-advisory ol {
+    @apply my-3 space-y-1.5;
+  }
+
+  .advisory-preview-body .prose-advisory li {
+    @apply text-slate-300;
+  }
+
+  .advisory-preview-body .prose-advisory hr {
+    @apply my-6 border-cyan-500/20;
+  }
+
+  .advisory-preview-body .prose-advisory strong {
+    @apply font-semibold text-cyan-100;
+  }
 }

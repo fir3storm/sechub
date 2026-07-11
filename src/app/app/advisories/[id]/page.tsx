@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { DesignerForm } from "@/components/advisory/DesignerForm";
 import { AIGenerateButton } from "@/components/advisory/AIGenerateButton";
-import { MarkdownPreview } from "@/components/advisory/MarkdownPreview";
+import { AdvisoryPreview } from "@/components/advisory/AdvisoryPreview";
 import { VersionHistoryPanel } from "@/components/advisory/VersionHistoryPanel";
 import { AdvisoryTemplateSchema, AISummaryMode, FormData } from "@/lib/advisory/template";
 import { ArrowLeft, Download } from "lucide-react";
@@ -22,6 +22,7 @@ export default function AdvisoryDetailPage() {
     aiGeneratedContent: string | null;
     aiSummaryMode: string | null;
     linkedArticleIds: string[];
+    templateId: string | null;
     updatedAt: string;
     template: { schema: AdvisoryTemplateSchema; name: string } | null;
   } | null>(null);
@@ -131,6 +132,7 @@ export default function AdvisoryDetailPage() {
         <AIGenerateButton
           advisoryId={advisory.id}
           linkedArticleIds={advisory.linkedArticleIds}
+          templateId={advisory.templateId}
           formData={formData}
           summaryMode={summaryMode}
           onSummaryModeChange={setSummaryMode}
@@ -157,9 +159,18 @@ export default function AdvisoryDetailPage() {
       </div>
 
       {aiContent && (
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold">Advisory Content</h2>
-          <MarkdownPreview content={aiContent} />
+        <div className="space-y-3">
+          <h2 className="font-display text-lg font-semibold uppercase tracking-wider text-cyan-100/90">
+            Advisory Preview
+          </h2>
+          <AdvisoryPreview
+            title={advisory.title}
+            content={aiContent}
+            formData={formData}
+            templateName={advisory.template?.name}
+            summaryMode={summaryMode}
+            linkedCount={advisory.linkedArticleIds.length}
+          />
         </div>
       )}
     </div>

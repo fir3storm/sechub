@@ -17,6 +17,7 @@ import { AI_SUMMARY_MODE_LABELS } from "@/lib/advisory/template";
 export function AIGenerateButton({
   advisoryId,
   linkedArticleIds,
+  templateId,
   formData,
   summaryMode,
   onSummaryModeChange,
@@ -25,6 +26,7 @@ export function AIGenerateButton({
 }: {
   advisoryId?: string;
   linkedArticleIds?: string[];
+  templateId?: string | null;
   formData: FormData;
   summaryMode?: AISummaryMode;
   onSummaryModeChange?: (mode: AISummaryMode) => void;
@@ -50,6 +52,7 @@ export function AIGenerateButton({
         body: JSON.stringify({
           advisoryId,
           linkedArticleIds,
+          templateId,
           formData,
           summaryMode: mode,
         }),

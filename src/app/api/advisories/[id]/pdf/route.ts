@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { renderAdvisoryPdf } from "@/lib/pdf/advisory-pdf";
+import { cleanAdvisoryMarkdown } from "@/lib/advisory/markdown";
 import { getClassificationBanner, type FormData } from "@/lib/advisory/template";
 
 function safeFilename(name: string): string {
@@ -37,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const markdown =
-    advisory.aiGeneratedContent ||
+    cleanAdvisoryMarkdown(advisory.aiGeneratedContent ?? "") ||
     `# ${advisory.title}\n\n_No AI-generated content yet._\n`;
 
   const author = advisory.createdBy?.name || advisory.createdBy?.email || null;
