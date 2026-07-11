@@ -5,6 +5,7 @@ import { getIngestSettings, getNvdApiKey } from "@/lib/settings";
 import { buildSummary } from "@/lib/ingestion/article-content";
 import { formatIngestError } from "@/lib/ingestion/errors";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
+import { assignArticleCategories } from "@/lib/ingestion/categorize";
 
 export async function ingestNvdFeed(
   daysBack = 1
@@ -48,10 +49,12 @@ export async function ingestNvdFeed(
       if (existing) {
         await prisma.newsArticle.update({ where: { id: existing.id }, data: articleData });
         await refreshNewsArticleSearchVector(existing.id);
+        await assignArticleCategories(existing.id, articleData.title, articleData.body, [cveId]);
         updated++;
       } else {
         const createdArticle = await prisma.newsArticle.create({ data: articleData });
         await refreshNewsArticleSearchVector(createdArticle.id);
+        await assignArticleCategories(createdArticle.id, articleData.title, articleData.body, [cveId]);
         created++;
       }
 

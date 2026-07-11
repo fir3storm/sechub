@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import { prepareArticleHtml } from "@/lib/news/article-format";
 import { stripAdsFromHtml } from "@/lib/news/strip-ads-client";
+import { enhanceArticleFigures, proxyArticleImages } from "@/lib/news/article-images";
 import { cn } from "@/lib/utils";
 
 const PURIFY_CONFIG = {
@@ -56,8 +57,9 @@ export function ArticleReader({
     }
 
     const clean = DOMPurify.sanitize(structured, PURIFY_CONFIG);
+    const withImages = enhanceArticleFigures(proxyArticleImages(clean));
 
-    return clean.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
+    return withImages.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ');
   }, [body, sourceUrl]);
 
   return (

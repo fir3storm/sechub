@@ -208,6 +208,18 @@
   .article-reader.prose-cyber img {
     @apply rounded-sm border border-cyan-500/20;
   }
+
+  .article-reader.prose-cyber .article-figure {
+    @apply my-6 overflow-hidden rounded-sm border border-cyan-500/20 bg-cyan-950/20;
+  }
+
+  .article-reader.prose-cyber .article-figure img {
+    @apply mb-0 w-full border-0;
+  }
+
+  .article-reader.prose-cyber figcaption {
+    @apply border-t border-cyan-500/15 px-4 py-2 font-mono-cyber text-[11px] text-slate-400;
+  }
 }
 
 @keyframes pulse-glow {

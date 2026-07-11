@@ -6,6 +6,7 @@ import { generateArticleSummary } from "@/lib/ai/deepseek";
 import { refreshNewsArticleSearchVector } from "@/lib/search/updateSearchVector";
 import { writeAuditLog } from "@/lib/audit";
 import { formatIngestError } from "@/lib/ingestion/errors";
+import { assignArticleCategories } from "@/lib/ingestion/categorize";
 
 export async function enrichShortArticles(options?: {
   limit?: number;
@@ -83,6 +84,7 @@ export async function enrichShortArticles(options?: {
         },
       });
       await refreshNewsArticleSearchVector(article.id);
+      await assignArticleCategories(article.id, article.title, storedBody, article.cveIds);
       enriched++;
     } catch (err) {
       failed++;

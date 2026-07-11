@@ -33,7 +33,23 @@ export const AD_SELECTORS = [
 const AD_CLASS_ID_RE =
   /(?:^|[\s_-])(?:ad|ads|advert|advertisement|sponsored|promo|banner|native-ad|outbrain|taboola)(?:$|[\s_-])/i;
 
-const PROMO_CTA_RE = /\b(play now|download now|free download|install now|sponsored by|advertisement)\b/i;
+const PROMO_CTA_RE = /\b(play now|download now|free download|install now|sponsored by|advertisement|learn more|read more|continue reading)\b/i;
+
+const SAME_SITE_PROMO_SELECTORS = [
+  '[class*="related"]',
+  '[class*="recommended"]',
+  '[class*="read-next"]',
+  '[class*="also-read"]',
+  '[class*="more-stories"]',
+  '[class*="news-box"]',
+  '[class*="article-box"]',
+  '[class*="promo"]',
+  ".bc_news",
+  ".bc_latest_news",
+  ".article-related",
+  ".related-articles",
+  ".recommended-articles",
+];
 
 export interface StripAdsOptions {
   /** Hostname of the article source — used to detect external promo links. */
@@ -80,8 +96,51 @@ function isImageOnlyPromoLink(anchor: Element, sourceHost?: string): boolean {
   return false;
 }
 
+function isSameSiteArticlePath(href: string, sourceHost: string): boolean {
+  try {
+    const url = href.startsWith("http") ? new URL(href) : new URL(href, `https://${sourceHost}`);
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== sourceHost) return false;
+    const path = url.pathname;
+    return /\/news\/|\/article\/|\/\d{4}\/\d{2}\/|\/blog\/|\/story\//i.test(path);
+  } catch {
+    return false;
+  }
+}
+
+function isSameSitePromoBlock(el: Element, sourceHost?: string): boolean {
+  if (!sourceHost) return false;
+
+  const cls = typeof el.className === "string" ? el.className : "";
+  const id = el.id || "";
+  if (/related|recommended|read-next|also-read|more-stories|news-box|promo-card|teaser-box/i.test(`${cls} ${id}`)) {
+    return true;
+  }
+
+  const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+  const links = [...el.querySelectorAll("a[href]")];
+  const sameSiteLinks = links.filter((a) =>
+    isSameSiteArticlePath(a.getAttribute("href") || "", sourceHost)
+  );
+
+  if (sameSiteLinks.length === 0) return false;
+
+  // BleepingComputer-style card: short blurb + "Learn More" linking to another article.
+  if (text.length < 320 && sameSiteLinks.length >= 1 && PROMO_CTA_RE.test(text)) {
+    return true;
+  }
+
+  // Compact same-site teaser with image + headline link.
+  if (sameSiteLinks.length === 1 && text.length < 220 && el.querySelector("img")) {
+    return true;
+  }
+
+  return false;
+}
+
 function isLikelyAdBlock(el: Element, sourceHost?: string): boolean {
   if (elementClassIdLooksLikeAd(el)) return true;
+  if (isSameSitePromoBlock(el, sourceHost)) return true;
 
   const text = (el.textContent || "").replace(/\s+/g, " ").trim();
   const imgs = el.querySelectorAll("img");
@@ -110,6 +169,10 @@ export function stripAdsFromRoot(root: ParentNode, options: StripAdsOptions = {}
   const sourceHost = options.sourceHost;
 
   for (const sel of AD_SELECTORS) {
+    root.querySelectorAll(sel).forEach((el) => el.remove());
+  }
+
+  for (const sel of SAME_SITE_PROMO_SELECTORS) {
     root.querySelectorAll(sel).forEach((el) => el.remove());
   }
 

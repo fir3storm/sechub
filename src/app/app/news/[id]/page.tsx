@@ -12,6 +12,7 @@ import { CyberCard } from "@/components/layout/PageHeader";
 import { MIN_FULL_ARTICLE_LENGTH, stripHtmlTags } from "@/lib/ingestion/article-content";
 import { getReadingStats } from "@/lib/news/article-format";
 import { ArticleLead, ArticleReader } from "@/components/news/ArticleReader";
+import { CveEnrichmentPanel } from "@/components/news/CveEnrichmentPanel";
 
 export default async function NewsDetailPage({
   params,
@@ -81,6 +82,19 @@ export default async function NewsDetailPage({
             </span>
           </div>
 
+          {article.categories.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {article.categories.map(({ category }) => (
+                <span
+                  key={category.slug}
+                  className="rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-2 py-0.5 font-mono-cyber text-[10px] uppercase tracking-wider text-emerald-400/90"
+                >
+                  {category.name}
+                </span>
+              ))}
+            </div>
+          )}
+
           {article.cveIds.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {article.cveIds.map((cve) => (
@@ -126,6 +140,8 @@ export default async function NewsDetailPage({
           </p>
         )}
       </section>
+
+      {article.cveIds.length > 0 && <CveEnrichmentPanel cveIds={article.cveIds} />}
 
       {(article.affectedDevices.length > 0 || article.affectedOs.length > 0) && (
         <CyberCard title="Affected Systems">

@@ -11,6 +11,7 @@ import { buildSummary, extractRssBody, isShortContent, stripHtmlTags } from "@/l
 import { delayBetweenFetches, fetchFullArticle } from "@/lib/ingestion/article-extractor";
 import { generateArticleSummary } from "@/lib/ai/deepseek";
 import { stripAdsFromHtml } from "@/lib/news/strip-ads-server";
+import { assignArticleCategories } from "@/lib/ingestion/categorize";
 
 const parser = new Parser({
   customFields: {
@@ -142,6 +143,13 @@ export async function ingestRssFeed(
           },
         });
         await refreshNewsArticleSearchVector(existing.id);
+        const updateCveIds = extractCveIds(`${item.title} ${stripHtmlTags(body)}`);
+        await assignArticleCategories(
+          existing.id,
+          item.title,
+          body,
+          updateCveIds.length ? updateCveIds : existing.cveIds
+        );
         updated++;
         continue;
       }
@@ -189,6 +197,7 @@ export async function ingestRssFeed(
         },
       });
       await refreshNewsArticleSearchVector(createdArticle.id);
+      await assignArticleCategories(createdArticle.id, item.title, body, cveIds);
       created++;
     } catch (err) {
       skipped++;
