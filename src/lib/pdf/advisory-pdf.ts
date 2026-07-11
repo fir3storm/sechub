@@ -363,6 +363,8 @@ function addPageFooters(doc: PDFKit.PDFDocument, meta: Meta) {
   const range = doc.bufferedPageRange();
   const totalPages = range.count;
   const classification = (meta.classification || "TLP:AMBER").toUpperCase();
+  const left = PAGE.margin;
+  const rightMargin = PAGE.margin;
 
   for (let i = range.start; i < range.start + totalPages; i++) {
     doc.switchToPage(i);
@@ -371,35 +373,36 @@ function addPageFooters(doc: PDFKit.PDFDocument, meta: Meta) {
     const h = doc.page.height;
     const footerTop = h - PAGE.footerH;
     const pageNum = i - range.start + 1;
+    const contentW = w - left - rightMargin;
+
+    // Footer sits in the bottom margin band — temporarily allow writing there.
+    const savedBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
 
     doc.save();
+
     doc.rect(0, footerTop, w, PAGE.footerH).fill(C.footerBand);
     doc.moveTo(0, footerTop).lineTo(w, footerTop).strokeColor(C.brandAccent).lineWidth(1).stroke();
 
-    doc.fillColor(C.footerText).font("Helvetica").fontSize(7.5);
-    doc.text(`SecHub · ${classification} · Generated ${generatedAt} UTC`, PAGE.margin, footerTop + 10, {
-      width: w * 0.55,
-      align: "left",
-      lineBreak: false,
-    });
+    const line1 = `SecHub · ${classification} · Generated ${generatedAt} UTC`;
+    const line2 = "Distribution per organizational policy — do not forward externally";
+    const pageLine = `Page ${pageNum} of ${totalPages}`;
 
-    doc.text("Distribution per organizational policy — do not forward externally", PAGE.margin, footerTop + 22, {
-      width: w * 0.55,
-      align: "left",
-      lineBreak: false,
-    });
+    doc.fillColor(C.footerText).font("Helvetica").fontSize(7.5);
+    doc.text(line1, left, footerTop + 8, { width: contentW * 0.72, lineBreak: false });
+    doc.text(line2, left, footerTop + 20, { width: contentW * 0.72, lineBreak: false });
 
     doc
       .fillColor(C.brandAccent)
       .font("Helvetica-Bold")
       .fontSize(8)
-      .text(`Page ${pageNum} of ${totalPages}`, PAGE.margin, footerTop + 14, {
-        width: w - PAGE.margin * 2,
-        align: "right",
-        lineBreak: false,
-      });
+      .text(pageLine, left, footerTop + 12, { width: contentW, align: "right", lineBreak: false });
 
     doc.restore();
+
+    doc.page.margins.bottom = savedBottom;
+    doc.x = left;
+    doc.y = doc.page.margins.top;
   }
 }
 
@@ -781,7 +784,7 @@ export async function renderAdvisoryPdf(args: {
     size: "A4",
     margins: {
       top: PAGE.margin,
-      bottom: PAGE.footerH + 20,
+      bottom: PAGE.footerH,
       left: PAGE.margin,
       right: PAGE.margin,
     },
