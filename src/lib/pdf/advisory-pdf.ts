@@ -22,7 +22,6 @@ type MarkdownToken = {
   ordered?: boolean;
 };
 
-/** SecHub security-advisory theme — navy + cyan accents, print-friendly. */
 const C = {
   pageBg: "#e8eef5",
   panel: "#ffffff",
@@ -31,14 +30,13 @@ const C = {
   headerBandEdge: "#1e3a5f",
   headerText: "#ffffff",
   headerSub: "#94a3b8",
-  brandAccent: "#22d3ee",
+  brandAccent: "#0891b2",
   title: "#0f2744",
   heading: "#1e4976",
   subheading: "#334155",
   body: "#334155",
   muted: "#64748b",
   accent: "#0e7490",
-  accentSoft: "#0891b2",
   rule: "#cbd5e1",
   bannerBg: "#fef3c7",
   bannerBorder: "#f59e0b",
@@ -48,23 +46,19 @@ const C = {
   sectionBorder: "#bae6fd",
   calloutBg: "#f8fafc",
   calloutBorder: "#0e7490",
-  listBg: "#f8fafc",
-  listBorder: "#e2e8f0",
   codeBg: "#f1f5f9",
   codeText: "#1e293b",
   codeBorder: "#cbd5e1",
   link: "#0369a1",
   footerBand: "#152a47",
   footerText: "#cbd5e1",
-  badgeBg: "#e0f2fe",
-  badgeText: "#0c4a6e",
 };
 
 const PAGE = {
   margin: 48,
   headerBandH: 68,
   contBandH: 36,
-  footerH: 40,
+  footerH: 44,
 };
 
 function collectBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
@@ -137,6 +131,8 @@ export function prepareMarkdownForPdf(markdown: string, meta: Pick<Meta, "classi
   text = text.replace(/^\s*\*\*Classification:\*\*\s*[^\n#]+(?:\n|$)/im, "");
   text = text.replace(/(#{1,3}\s*Executive Summary\s*\n+)\*\*Executive Summary:\*\*\s*\n/gi, "$1");
   text = text.replace(/(#{1,3}\s*Executive Summary\s*\n+)Executive Summary:\s*\n/gi, "$1");
+  text = text.replace(/\*\*Executive Summary:\*\*\s*/gi, "");
+  text = text.replace(/(^|\n)Executive Summary:\s+(?=[A-Z])/g, "$1");
 
   if (meta.classification) {
     const cls = meta.classification.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -158,6 +154,10 @@ function contentWidth(doc: PDFKit.PDFDocument) {
   return contentRight(doc) - contentLeft(doc);
 }
 
+function contentBottom(doc: PDFKit.PDFDocument) {
+  return doc.page.height - doc.page.margins.bottom;
+}
+
 function paintPageBackground(doc: PDFKit.PDFDocument, mode: "cover" | "continued") {
   const w = doc.page.width;
   const h = doc.page.height;
@@ -167,15 +167,10 @@ function paintPageBackground(doc: PDFKit.PDFDocument, mode: "cover" | "continued
 
   const bandH = mode === "cover" ? PAGE.headerBandH : PAGE.contBandH;
   doc.rect(0, 0, w, bandH).fill(C.headerBand);
-  doc
-    .moveTo(0, bandH)
-    .lineTo(w, bandH)
-    .strokeColor(C.brandAccent)
-    .lineWidth(2)
-    .stroke();
+  doc.moveTo(0, bandH).lineTo(w, bandH).strokeColor(C.brandAccent).lineWidth(2).stroke();
 
   const panelTop = bandH + 10;
-  const panelBottom = h - PAGE.footerH - 6;
+  const panelBottom = h - PAGE.footerH - 8;
   doc
     .roundedRect(PAGE.margin - 8, panelTop, w - (PAGE.margin - 8) * 2, panelBottom - panelTop, 6)
     .fillColor(C.panel)
@@ -187,7 +182,7 @@ function paintPageBackground(doc: PDFKit.PDFDocument, mode: "cover" | "continued
   doc.restore();
 }
 
-function drawLogo(doc: PDFKit.PDFDocument, x: number, y: number, onDark = true) {
+function drawLogo(doc: PDFKit.PDFDocument, x: number, y: number) {
   doc.save();
   doc.roundedRect(x, y, 30, 30, 5).fillColor(C.headerBandEdge).fill();
   doc
@@ -199,12 +194,9 @@ function drawLogo(doc: PDFKit.PDFDocument, x: number, y: number, onDark = true) 
     .fill();
   doc.restore();
 
-  const textColor = onDark ? C.headerText : C.title;
-  const subColor = onDark ? C.headerSub : C.muted;
-
-  doc.fillColor(textColor).font("Helvetica-Bold").fontSize(15).text("SecHub", x + 38, y + 3);
+  doc.fillColor(C.headerText).font("Helvetica-Bold").fontSize(15).text("SecHub", x + 38, y + 3);
   doc
-    .fillColor(subColor)
+    .fillColor(C.headerSub)
     .font("Helvetica")
     .fontSize(7.5)
     .text("Powered by Bramhashiv AI", x + 38, y + 20);
@@ -215,7 +207,7 @@ function drawCoverTopBand(doc: PDFKit.PDFDocument, meta: Meta) {
   const right = doc.page.width - PAGE.margin;
   const dateStr = (meta.generatedAt ?? new Date()).toISOString().slice(0, 10);
 
-  drawLogo(doc, left, 18, true);
+  drawLogo(doc, left, 18);
 
   doc
     .fillColor(C.headerSub)
@@ -238,14 +230,14 @@ function drawCoverTopBand(doc: PDFKit.PDFDocument, meta: Meta) {
 
 function drawClassificationBanner(doc: PDFKit.PDFDocument, classification: string) {
   const x = contentLeft(doc);
-  const width = contentWidth(doc);
+  const w = contentWidth(doc);
   const y = doc.y;
   const h = 26;
 
   doc
     .save()
     .fillColor(C.bannerBg)
-    .roundedRect(x, y, width, h, 3)
+    .roundedRect(x, y, w, h, 3)
     .fill()
     .strokeColor(C.bannerBorder)
     .lineWidth(1)
@@ -256,7 +248,7 @@ function drawClassificationBanner(doc: PDFKit.PDFDocument, classification: strin
     .fillColor(C.bannerText)
     .font("Helvetica-Bold")
     .fontSize(8.5)
-    .text(classification.toUpperCase(), x, y + 8, { width, align: "center", lineBreak: false });
+    .text(classification.toUpperCase(), x, y + 8, { width: w, align: "center", lineBreak: false });
 
   doc.y = y + h + 14;
 }
@@ -275,8 +267,10 @@ function drawMetadataRow(doc: PDFKit.PDFDocument, meta: Meta) {
   const gap = 8;
 
   for (const chip of chips) {
-    const labelW = doc.font("Helvetica").fontSize(7).widthOfString(chip.label.toUpperCase());
-    const valueW = doc.font("Helvetica-Bold").fontSize(8).widthOfString(chip.value);
+    doc.font("Helvetica").fontSize(7);
+    const labelW = doc.widthOfString(chip.label.toUpperCase());
+    doc.font("Helvetica-Bold").fontSize(8);
+    const valueW = doc.widthOfString(chip.value);
     const chipW = Math.max(labelW, valueW) + 16;
     const chipH = 28;
 
@@ -380,27 +374,19 @@ function addPageFooters(doc: PDFKit.PDFDocument, meta: Meta) {
 
     doc.save();
     doc.rect(0, footerTop, w, PAGE.footerH).fill(C.footerBand);
-    doc
-      .moveTo(0, footerTop)
-      .lineTo(w, footerTop)
-      .strokeColor(C.brandAccent)
-      .lineWidth(1)
-      .stroke();
+    doc.moveTo(0, footerTop).lineTo(w, footerTop).strokeColor(C.brandAccent).lineWidth(1).stroke();
 
     doc.fillColor(C.footerText).font("Helvetica").fontSize(7.5);
-
     doc.text(`SecHub · ${classification} · Generated ${generatedAt} UTC`, PAGE.margin, footerTop + 10, {
       width: w * 0.55,
       align: "left",
       lineBreak: false,
-      height: 10,
     });
 
     doc.text("Distribution per organizational policy — do not forward externally", PAGE.margin, footerTop + 22, {
       width: w * 0.55,
       align: "left",
       lineBreak: false,
-      height: 10,
     });
 
     doc
@@ -411,7 +397,6 @@ function addPageFooters(doc: PDFKit.PDFDocument, meta: Meta) {
         width: w - PAGE.margin * 2,
         align: "right",
         lineBreak: false,
-        height: 10,
       });
 
     doc.restore();
@@ -422,16 +407,18 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
   const tokens = marked.lexer(markdown ?? "") as MarkdownToken[];
   let nextParagraphIsCallout = false;
 
-  const bottomLimit = () => doc.page.height - PAGE.footerH - 16;
-  const width = () => contentWidth(doc);
-
   const addPage = () => {
     doc.addPage();
     drawContinuationHeader(doc, meta);
   };
 
   const ensureSpace = (needed = 40) => {
-    if (doc.y + needed > bottomLimit()) addPage();
+    if (doc.y + needed > contentBottom(doc)) addPage();
+  };
+
+  const estimateTextHeight = (text: string, w: number, size = 10.5, lineGap = 4) => {
+    doc.font("Helvetica").fontSize(size);
+    return doc.heightOfString(text, { width: w, lineGap });
   };
 
   const renderInline = (
@@ -440,7 +427,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
   ) => {
     const color = opts.color ?? C.body;
     const size = opts.size ?? 10.5;
-    const w = opts.w ?? width();
+    const w = opts.w ?? contentWidth(doc);
     const startX = opts.x ?? contentLeft(doc);
     const flat = flattenInlineTokens(inlineTokens);
     if (!flat.length) return;
@@ -484,7 +471,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
         }
         case "codespan": {
           const code = safeText(tok.text);
-          doc.fillColor(C.badgeText).font("Courier-Bold").fontSize(size - 0.5);
+          doc.fillColor(C.codeText).font("Courier-Bold").fontSize(size - 0.5);
           doc.text(code, startX, doc.y, { continued, width: w, lineGap: 3 });
           doc.font("Helvetica").fontSize(size);
           break;
@@ -522,13 +509,13 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
   const renderLabel = (tok: MarkdownToken) => {
     const text = blockPlainText(tok).trim();
     if (!text) return;
-    ensureSpace(24);
+    ensureSpace(22);
     doc
       .fillColor(C.accent)
       .font("Helvetica-Bold")
       .fontSize(10)
-      .text(text, contentLeft(doc), doc.y, { width: width(), lineGap: 2 });
-    doc.moveDown(0.3);
+      .text(text, contentLeft(doc), doc.y, { width: contentWidth(doc), lineGap: 2 });
+    doc.moveDown(0.35);
   };
 
   const renderParagraph = (tok: MarkdownToken) => {
@@ -537,35 +524,31 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
       return;
     }
 
+    const bodyText = blockPlainText(tok);
     const renderBody = () => {
       if (tok.tokens?.length) {
         renderInline(tok.tokens);
-      } else {
-        const text = blockPlainText(tok);
-        if (!text.trim()) return;
-        doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(text, { width: width(), lineGap: 4 });
+      } else if (bodyText.trim()) {
+        doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(bodyText, {
+          width: contentWidth(doc),
+          lineGap: 4,
+        });
       }
     };
 
     if (nextParagraphIsCallout) {
       nextParagraphIsCallout = false;
-      ensureSpace(48);
       const x = contentLeft(doc);
-      const w = width();
-      const text = blockPlainText(tok);
-      doc.font("Helvetica").fontSize(10.5);
-      const textH = doc.heightOfString(text, { width: w - 28, lineGap: 4 });
+      const w = contentWidth(doc);
+      const textH = estimateTextHeight(bodyText, w - 28);
       const boxH = textH + 24;
-      const startY = doc.y;
+      ensureSpace(boxH + 8);
 
+      const startY = doc.y;
       doc.save();
       doc.fillColor(C.calloutBg).roundedRect(x, startY, w, boxH, 5).fill();
       doc.rect(x, startY, 4, boxH).fillColor(C.sectionBar).fill();
-      doc
-        .strokeColor(C.calloutBorder)
-        .lineWidth(0.75)
-        .roundedRect(x, startY, w, boxH, 5)
-        .stroke();
+      doc.strokeColor(C.calloutBorder).lineWidth(0.75).roundedRect(x, startY, w, boxH, 5).stroke();
       doc.restore();
 
       doc.y = startY + 12;
@@ -575,9 +558,9 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
       return;
     }
 
-    ensureSpace(28);
+    ensureSpace(estimateTextHeight(bodyText, contentWidth(doc)) + 8);
     renderBody();
-    doc.moveDown(0.5);
+    doc.moveDown(0.55);
   };
 
   const heading = (tok: MarkdownToken) => {
@@ -587,49 +570,57 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
 
     nextParagraphIsCallout = /executive summary/i.test(text);
 
-    ensureSpace(level <= 2 ? 52 : 34);
-
     if (level <= 2) {
       const x = contentLeft(doc);
-      const w = width();
-      const y = doc.y;
-      const barH = level === 1 ? 30 : 26;
+      const w = contentWidth(doc);
+      const size = level === 1 ? 14 : 12;
+      doc.font("Helvetica-Bold").fontSize(size);
+      const textH = doc.heightOfString(text, { width: w - 24, lineGap: 2 });
+      const barH = textH + 14;
 
+      ensureSpace(barH + 12);
+
+      const y = doc.y;
       doc.save();
       doc.fillColor(C.sectionBg).rect(x, y, w, barH).fill();
       doc.rect(x, y, 4, barH).fillColor(C.sectionBar).fill();
       doc.restore();
 
-      const size = level === 1 ? 14 : 12;
       doc
         .fillColor(C.heading)
         .font("Helvetica-Bold")
         .fontSize(size)
-        .text(text, x + 12, y + (level === 1 ? 8 : 7), { width: w - 20, lineBreak: false });
+        .text(text, x + 12, y + 7, { width: w - 24, lineGap: 2 });
 
       doc.y = y + barH + 10;
     } else {
+      ensureSpace(28);
       doc
         .fillColor(C.subheading)
         .font("Helvetica-Bold")
         .fontSize(11)
-        .text(text, contentLeft(doc), doc.y, { width: width(), lineGap: 2 });
-      doc.moveDown(0.35);
+        .text(text, contentLeft(doc), doc.y, { width: contentWidth(doc), lineGap: 2 });
+      doc.moveDown(0.4);
     }
   };
 
-  const renderListItem = (item: MarkdownToken, indent: number) => {
-    ensureSpace(22);
-    const bulletX = contentLeft(doc) + indent + 4;
-    const textX = bulletX + 14;
+  const renderListItem = (item: MarkdownToken, indent: number, ordered: boolean, index: number) => {
+    const bulletX = contentLeft(doc) + indent;
+    const textX = bulletX + 16;
     const w = contentRight(doc) - textX;
+    const itemText = blockPlainText(item);
+    const itemH = estimateTextHeight(itemText, w) + 6;
+
+    ensureSpace(itemH + 4);
+
     const startY = doc.y;
+    const marker = ordered ? `${index + 1}.` : "\u2022";
 
     doc
-      .fillColor(C.accentSoft)
+      .fillColor(C.accent)
       .font("Helvetica-Bold")
-      .fontSize(11)
-      .text("▸", bulletX, startY, { lineBreak: false });
+      .fontSize(10.5)
+      .text(marker, bulletX, startY, { lineBreak: false });
 
     doc.x = textX;
     doc.y = startY;
@@ -639,63 +630,42 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
 
     if (inlineSource.length) {
       renderInline(flattenInlineTokens(inlineSource), { w, x: textX });
-    } else {
-      const text = blockPlainText(item);
-      if (text) {
-        doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(text, { width: w, lineGap: 4 });
-      }
+    } else if (itemText) {
+      doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(itemText, { width: w, lineGap: 4 });
     }
 
-    doc.moveDown(0.4);
+    doc.moveDown(0.45);
 
     if (nestedList?.items?.length) {
-      bullet(nestedList.items, indent + 18);
+      bullet(nestedList.items, indent + 18, !!nestedList.ordered);
     }
   };
 
-  const bullet = (items: MarkdownToken[], indent = 0) => {
-    ensureSpace(20);
+  const bullet = (items: MarkdownToken[], indent = 0, ordered = false) => {
+    if (!items.length) return;
+    ensureSpace(16);
+    doc.moveDown(0.15);
 
-    const x = contentLeft(doc) + indent;
-    const w = width() - indent;
-    const startY = doc.y;
-
-    doc.save();
-    const estH = items.length * 22 + 12;
-    doc
-      .fillColor(C.listBg)
-      .roundedRect(x, startY, w, estH, 4)
-      .fill()
-      .strokeColor(C.listBorder)
-      .lineWidth(0.5)
-      .stroke();
-    doc.restore();
-
-    doc.y = startY + 8;
-    doc.x = contentLeft(doc) + indent;
-
-    for (const item of items) {
-      renderListItem(item, indent);
+    for (let i = 0; i < items.length; i++) {
+      renderListItem(items[i], indent, ordered, i);
     }
 
-    doc.y = Math.max(doc.y, startY + estH + 4);
-    doc.moveDown(0.35);
+    doc.moveDown(0.25);
   };
 
   const codeBlock = (code: string) => {
-    ensureSpace(50);
     const x = contentLeft(doc);
-    const w = width();
-    const startY = doc.y;
+    const w = contentWidth(doc);
     const cleanCode = code.replace(/\t/g, "  ");
     const padding = 12;
 
-    doc.fillColor(C.codeText).font("Courier").fontSize(9);
+    doc.font("Courier").fontSize(9);
     const textHeight = doc.heightOfString(cleanCode, { width: w - padding * 2, lineGap: 2 });
-    const boxHeight = textHeight + padding * 2;
+    const boxHeight = textHeight + padding * 2 + 10;
 
-    ensureSpace(boxHeight + 12);
+    ensureSpace(boxHeight + 8);
 
+    const startY = doc.y;
     doc
       .save()
       .fillColor(C.codeBg)
@@ -715,7 +685,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
       .fillColor(C.codeText)
       .font("Courier")
       .fontSize(9)
-      .text(cleanCode, x + padding, startY + padding + 4, {
+      .text(cleanCode, x + padding, startY + padding + 8, {
         width: w - padding * 2,
         lineGap: 2,
       });
@@ -724,17 +694,18 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
   };
 
   const quote = (tok: MarkdownToken) => {
-    ensureSpace(36);
     const x = contentLeft(doc);
-    const w = width();
-    const startY = doc.y;
-    const text = blockPlainText(tok);
+    const w = contentWidth(doc);
+    const text = blockPlainText(tok).trim();
     const padding = 14;
 
-    doc.fillColor(C.body).font("Helvetica-Oblique").fontSize(10);
-    const textHeight = doc.heightOfString(text.trim(), { width: w - padding * 2, lineGap: 4 });
+    doc.font("Helvetica-Oblique").fontSize(10);
+    const textHeight = doc.heightOfString(text, { width: w - padding * 2, lineGap: 4 });
     const boxHeight = textHeight + padding;
 
+    ensureSpace(boxHeight + 8);
+
+    const startY = doc.y;
     doc.save().fillColor(C.sectionBg).roundedRect(x, startY, w, boxHeight, 4).fill().restore();
     doc.rect(x, startY, 4, boxHeight).fillColor(C.sectionBar).fill();
 
@@ -742,7 +713,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
       .fillColor(C.subheading)
       .font("Helvetica-Oblique")
       .fontSize(10)
-      .text(text.trim(), x + padding, startY + padding / 2, {
+      .text(text, x + padding, startY + padding / 2, {
         width: w - padding * 2,
         lineGap: 4,
       });
@@ -769,7 +740,7 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
     }
 
     if (tok.type === "list") {
-      bullet(tok.items ?? []);
+      bullet(tok.items ?? [], 0, !!tok.ordered);
       continue;
     }
 
@@ -792,8 +763,8 @@ function renderMarkdownTokens(doc: PDFKit.PDFDocument, markdown: string, meta: M
 
     const text = blockPlainText(tok);
     if (text) {
-      ensureSpace(28);
-      doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(text, { width: width(), lineGap: 4 });
+      ensureSpace(estimateTextHeight(text, contentWidth(doc)) + 8);
+      doc.fillColor(C.body).font("Helvetica").fontSize(10.5).text(text, { width: contentWidth(doc), lineGap: 4 });
       doc.moveDown(0.5);
     }
   }
@@ -808,7 +779,12 @@ export async function renderAdvisoryPdf(args: {
 
   const doc = new PDFDocument({
     size: "A4",
-    margins: { top: PAGE.margin, bottom: PAGE.footerH + 12, left: PAGE.margin, right: PAGE.margin },
+    margins: {
+      top: PAGE.margin,
+      bottom: PAGE.footerH + 20,
+      left: PAGE.margin,
+      right: PAGE.margin,
+    },
     bufferPages: true,
     autoFirstPage: true,
     info: {
