@@ -6,54 +6,106 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DesignerForm } from "@/components/advisory/DesignerForm";
 import { AIGenerateButton } from "@/components/advisory/AIGenerateButton";
 import { MarkdownPreview } from "@/components/advisory/MarkdownPreview";
 import {
   AdvisoryTemplateSchema,
+  AISummaryMode,
   FormData,
+  MAX_LINKED_ARTICLES,
+  THREAT_TYPE_LABELS,
+  ThreatType,
   buildDefaultFormData,
+  inferThreatTypeFromArticles,
   prefillFromArticles,
 } from "@/lib/advisory/template";
 import { ArrowLeft, Download } from "lucide-react";
 
+interface TemplateOption {
+  id: string;
+  name: string;
+  description: string | null;
+  threatType: string | null;
+  schema: AdvisoryTemplateSchema;
+  isDefault: boolean;
+}
+
 export default function NewAdvisoryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const articleIds = (searchParams.get("articles") ?? "").split(",").filter(Boolean);
+  const rawArticleIds = (searchParams.get("articles") ?? "").split(",").filter(Boolean);
+  const articleIds = rawArticleIds.slice(0, MAX_LINKED_ARTICLES);
 
   const [title, setTitle] = useState("Security Advisory");
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [schema, setSchema] = useState<AdvisoryTemplateSchema | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({});
   const [aiContent, setAiContent] = useState("");
+  const [summaryMode, setSummaryMode] = useState<AISummaryMode>("technical");
   const [advisoryId, setAdvisoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [linkedTitles, setLinkedTitles] = useState<string[]>([]);
 
   useEffect(() => {
     async function load() {
       const templatesRes = await fetch("/api/templates");
-      const templates = await templatesRes.json();
-      const tmpl = templates.find((t: { isDefault: boolean }) => t.isDefault) ?? templates[0];
-      if (tmpl) {
-        setSchema(tmpl.schema as AdvisoryTemplateSchema);
-        setTemplateId(tmpl.id);
-        let data = buildDefaultFormData(tmpl.schema as AdvisoryTemplateSchema);
+      const tmplList: TemplateOption[] = await templatesRes.json();
+      setTemplates(tmplList);
 
-        if (articleIds.length > 0) {
-          const articles = await Promise.all(
-            articleIds.map((id) => fetch(`/api/news/${id}`).then((r) => r.json()))
-          );
-          data = prefillFromArticles(data, articles);
-          if (articles[0]?.title) {
-            setTitle(`Advisory: ${articles[0].title.slice(0, 80)}`);
-          }
+      let selected = tmplList.find((t) => t.isDefault) ?? tmplList[0];
+      let data = buildDefaultFormData(selected.schema);
+
+      if (articleIds.length > 0) {
+        const articles = await Promise.all(
+          articleIds.map((id) => fetch(`/api/news/${id}`).then((r) => r.json()))
+        );
+        setLinkedTitles(articles.map((a: { title: string }) => a.title));
+
+        const inferred = inferThreatTypeFromArticles(articles);
+        const matched =
+          tmplList.find((t) => t.threatType === inferred) ??
+          tmplList.find((t) => t.isDefault) ??
+          selected;
+        selected = matched;
+        data = buildDefaultFormData(selected.schema);
+        data = prefillFromArticles(data, articles, (selected.threatType as ThreatType) ?? "general");
+
+        if (articles.length === 1 && articles[0]?.title) {
+          setTitle(`Advisory: ${articles[0].title.slice(0, 80)}`);
+        } else if (articles.length > 1) {
+          setTitle(`Merged Bulletin (${articles.length} articles)`);
         }
-        setFormData(data);
       }
+
+      setSchema(selected.schema);
+      setTemplateId(selected.id);
+      setFormData(data);
     }
     load();
   }, [articleIds.join(",")]);
+
+  const switchTemplate = (id: string) => {
+    const tmpl = templates.find((t) => t.id === id);
+    if (!tmpl) return;
+    setTemplateId(id);
+    setSchema(tmpl.schema);
+    setFormData((prev) => {
+      const fresh = buildDefaultFormData(tmpl.schema);
+      for (const [k, v] of Object.entries(prev)) {
+        if (k in fresh) fresh[k] = v;
+      }
+      return fresh;
+    });
+  };
 
   const save = async (status: "draft" | "published") => {
     setSaving(true);
@@ -63,6 +115,7 @@ export default function NewAdvisoryPage() {
       linkedArticleIds: articleIds,
       formData,
       aiGeneratedContent: aiContent || null,
+      aiSummaryMode: summaryMode,
       status,
     };
 
@@ -113,15 +166,48 @@ export default function NewAdvisoryPage() {
 
       <h1 className="text-3xl font-bold">Create Advisory</h1>
 
-      <div className="space-y-2">
-        <Label>Advisory Title</Label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Advisory Title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Threat Type Template</Label>
+          <Select value={templateId ?? ""} onValueChange={switchTemplate}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select template" />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                  {t.threatType && t.threatType !== "general"
+                    ? ` (${THREAT_TYPE_LABELS[t.threatType as ThreatType] ?? t.threatType})`
+                    : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {articleIds.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          Linked to {articleIds.length} news article(s)
-        </p>
+        <div className="rounded-sm border border-cyan-500/20 bg-cyan-950/20 p-4">
+          <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70">
+            Merged bulletin · {articleIds.length} article{articleIds.length > 1 ? "s" : ""}
+            {rawArticleIds.length > MAX_LINKED_ARTICLES && (
+              <span className="ml-2 text-amber-400">(max {MAX_LINKED_ARTICLES} applied)</span>
+            )}
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-slate-300">
+            {linkedTitles.map((t, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="text-cyan-500">•</span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <DesignerForm schema={schema} formData={formData} onChange={setFormData} />
@@ -129,7 +215,10 @@ export default function NewAdvisoryPage() {
       <div className="flex flex-wrap gap-3 border-t pt-6">
         <AIGenerateButton
           advisoryId={advisoryId ?? undefined}
+          linkedArticleIds={articleIds}
           formData={formData}
+          summaryMode={summaryMode}
+          onSummaryModeChange={setSummaryMode}
           onGenerated={setAiContent}
         />
         <Button variant="outline" onClick={() => save("draft")} disabled={saving}>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { NewsCard, NewsArticleCardData } from "@/components/news/NewsCard";
 import { Button } from "@/components/ui/button";
 import { Archive, FileWarning, RefreshCw } from "lucide-react";
+import { MAX_LINKED_ARTICLES } from "@/lib/advisory/template";
 
 export function NewsListClient({
   initialArticles,
@@ -29,7 +30,7 @@ export function NewsListClient({
   };
 
   const createAdvisory = () => {
-    const ids = [...selected];
+    const ids = [...selected].slice(0, MAX_LINKED_ARTICLES);
     if (ids.length === 0) return;
     router.push(`/app/advisories/new?articles=${ids.join(",")}`);
   };

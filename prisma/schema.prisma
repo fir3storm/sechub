@@ -56,6 +56,7 @@ model User {
   sessions      Session[]
   articles      NewsArticle[]
   advisories    Advisory[]
+  advisoryRevisions AdvisoryRevision[]
   auditLogs     AuditLog[]
 }
 
@@ -164,6 +165,7 @@ model AdvisoryTemplate {
   name        String
   description String?
   schema      Json
+  threatType  String?
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -178,6 +180,7 @@ model Advisory {
   linkedArticleIds     String[]
   formData             Json
   aiGeneratedContent   String?        @db.Text
+  aiSummaryMode        String?
   status               AdvisoryStatus @default(draft)
   createdById          String
   publishedAt          DateTime?
@@ -186,9 +189,29 @@ model Advisory {
 
   template  AdvisoryTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   createdBy User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  revisions AdvisoryRevision[]
 
   @@index([status])
   @@index([createdById])
+}
+
+model AdvisoryRevision {
+  id                 String   @id @default(cuid())
+  advisoryId         String
+  version            Int
+  title              String
+  formData           Json
+  aiGeneratedContent String?  @db.Text
+  changeType         String
+  summaryMode        String?
+  createdById        String
+  createdAt          DateTime @default(now())
+
+  advisory  Advisory @relation(fields: [advisoryId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([advisoryId, version])
+  @@index([advisoryId])
 }
 
 model AppSetting {

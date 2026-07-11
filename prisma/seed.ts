@@ -1,6 +1,6 @@
 import { PrismaClient, Role, FeedType } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { DEFAULT_ADVISORY_TEMPLATE } from "../src/lib/advisory/template";
+import { DEFAULT_ADVISORY_TEMPLATE, RANSOMWARE_TEMPLATE, VULNERABILITY_TEMPLATE, BREACH_TEMPLATE } from "../src/lib/advisory/template";
 
 const prisma = new PrismaClient();
 
@@ -41,15 +41,60 @@ async function main() {
 
   await prisma.advisoryTemplate.upsert({
     where: { id: "default-template" },
-    update: {},
+    update: { threatType: "general" },
     create: {
       id: "default-template",
       name: "Standard Security Advisory",
       description: "Default advisory template with executive summary, threat details, IOCs, and mitigation.",
       schema: JSON.parse(JSON.stringify(DEFAULT_ADVISORY_TEMPLATE)),
+      threatType: "general",
       isDefault: true,
     },
   });
+
+  const threatTemplates = [
+    {
+      id: "template-ransomware",
+      name: "Ransomware Advisory",
+      description: "Ransomware campaign bulletin with containment and recovery sections.",
+      threatType: "ransomware",
+      schema: RANSOMWARE_TEMPLATE,
+    },
+    {
+      id: "template-vulnerability",
+      name: "Vulnerability / CVE Advisory",
+      description: "CVE-focused advisory with exploit status and remediation.",
+      threatType: "vulnerability",
+      schema: VULNERABILITY_TEMPLATE,
+    },
+    {
+      id: "template-breach",
+      name: "Data Breach Advisory",
+      description: "Data breach incident bulletin with exposure and notification sections.",
+      threatType: "breach",
+      schema: BREACH_TEMPLATE,
+    },
+  ];
+
+  for (const tmpl of threatTemplates) {
+    await prisma.advisoryTemplate.upsert({
+      where: { id: tmpl.id },
+      update: {
+        name: tmpl.name,
+        description: tmpl.description,
+        threatType: tmpl.threatType,
+        schema: JSON.parse(JSON.stringify(tmpl.schema)),
+      },
+      create: {
+        id: tmpl.id,
+        name: tmpl.name,
+        description: tmpl.description,
+        threatType: tmpl.threatType,
+        schema: JSON.parse(JSON.stringify(tmpl.schema)),
+        isDefault: false,
+      },
+    });
+  }
 
   const feeds = [
     { name: "NVD CVE Database", type: FeedType.NVD, url: null },

@@ -5,13 +5,16 @@ import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { checkAiRateLimit, generateAdvisoryWithAI } from "@/lib/ai/deepseek";
 import { writeAuditLog } from "@/lib/audit";
-import type { FormData } from "@/lib/advisory/template";
+import type { AISummaryMode, FormData } from "@/lib/advisory/template";
+import { MAX_LINKED_ARTICLES } from "@/lib/advisory/template";
+import { snapshotAdvisoryRevision } from "@/lib/advisory/revisions";
 import { z } from "zod";
 
 const schema = z.object({
   advisoryId: z.string().optional(),
-  linkedArticleIds: z.array(z.string()).optional(),
+  linkedArticleIds: z.array(z.string()).max(MAX_LINKED_ARTICLES).optional(),
   formData: z.record(z.union([z.string(), z.array(z.string())])),
+  summaryMode: z.enum(["executive", "technical", "soc_handoff"]).default("technical"),
 });
 
 export async function POST(req: NextRequest) {
@@ -31,16 +34,30 @@ export async function POST(req: NextRequest) {
 
   const body = schema.parse(await req.json());
   let linkedArticleIds = body.linkedArticleIds ?? [];
-  let advisoryId = body.advisoryId;
+  const advisoryId = body.advisoryId;
+  const summaryMode = body.summaryMode as AISummaryMode;
 
   if (advisoryId) {
     const advisory = await prisma.advisory.findUnique({ where: { id: advisoryId } });
     if (!advisory) return NextResponse.json({ error: "Advisory not found" }, { status: 404 });
-    linkedArticleIds = advisory.linkedArticleIds;
+
+    if (linkedArticleIds.length === 0) {
+      linkedArticleIds = advisory.linkedArticleIds;
+    }
+
+    await snapshotAdvisoryRevision({
+      advisoryId,
+      title: advisory.title,
+      formData: advisory.formData as FormData,
+      aiGeneratedContent: advisory.aiGeneratedContent,
+      changeType: "ai_generate",
+      summaryMode: summaryMode,
+      createdById: session.user.id,
+    });
   }
 
   const articles = linkedArticleIds.length
-    ? await prisma.newsArticle.findMany({ where: { id: { in: linkedArticleIds } } })
+    ? await prisma.newsArticle.findMany({ where: { id: { in: linkedArticleIds.slice(0, MAX_LINKED_ARTICLES) } } })
     : [];
 
   try {
@@ -55,13 +72,18 @@ export async function POST(req: NextRequest) {
         affectedOs: a.affectedOs,
         sourceName: a.sourceName,
       })),
-      body.formData as FormData
+      body.formData as FormData,
+      summaryMode
     );
 
     if (advisoryId) {
       await prisma.advisory.update({
         where: { id: advisoryId },
-        data: { aiGeneratedContent: content, formData: body.formData },
+        data: {
+          aiGeneratedContent: content,
+          formData: body.formData,
+          aiSummaryMode: summaryMode,
+        },
       });
     }
 
@@ -70,9 +92,10 @@ export async function POST(req: NextRequest) {
       action: "advisory.ai_generate",
       entity: "Advisory",
       entityId: advisoryId,
+      metadata: { summaryMode, articleCount: articles.length },
     });
 
-    return NextResponse.json({ content });
+    return NextResponse.json({ content, summaryMode });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "AI generation failed" },

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getAISettings } from "@/lib/settings";
-import type { FormData } from "@/lib/advisory/template";
+import type { AISummaryMode, FormData } from "@/lib/advisory/template";
 
 interface ArticleContext {
   title: string;
@@ -13,8 +13,30 @@ interface ArticleContext {
   sourceName: string;
 }
 
-function buildAdvisoryPrompt(articles: ArticleContext[], formData: FormData): string {
-  return `Generate a security advisory in markdown based on the following context.
+const MODE_INSTRUCTIONS: Record<AISummaryMode, string> = {
+  executive:
+    "MODE: Executive Brief. Write exactly 3 sentences total for the executive summary section. Keep the full advisory concise (under 400 words). Use plain language for C-suite readers. Still include all required section headings but keep each section brief.",
+  technical:
+    "MODE: Technical Deep-Dive. Provide comprehensive technical detail: CVE analysis, attack vectors, affected versions, detection logic, and step-by-step remediation. Include code blocks or command examples where helpful.",
+  soc_handoff:
+    "MODE: SOC Handoff. Structure the advisory for SOC analysts with these emphasis areas: Alert Priority, Detection Logic (SIEM queries / log sources), Containment Steps (numbered, actionable), Escalation Path, and IOC table. Use bullet points and clear severity callouts.",
+};
+
+function buildAdvisoryPrompt(
+  articles: ArticleContext[],
+  formData: FormData,
+  mode: AISummaryMode
+): string {
+  const articleBlock =
+    articles.length > 1
+      ? `This is a MERGED bulletin combining ${articles.length} related articles. Synthesize into one cohesive advisory. Deduplicate CVEs and IOCs.`
+      : "";
+
+  return `${MODE_INSTRUCTIONS[mode]}
+
+${articleBlock}
+
+Generate a security advisory in markdown based on the following context.
 
 ## Linked Security News Articles
 ${JSON.stringify(
@@ -40,7 +62,8 @@ Include actionable mitigation steps and references.`;
 
 export async function generateAdvisoryWithAI(
   articles: ArticleContext[],
-  formData: FormData
+  formData: FormData,
+  mode: AISummaryMode = "technical"
 ): Promise<string> {
   const settings = await getAISettings();
   if (!settings.apiKey) {
@@ -55,11 +78,11 @@ export async function generateAdvisoryWithAI(
     },
     body: JSON.stringify({
       model: settings.model,
-      max_tokens: settings.maxTokens,
-      temperature: settings.temperature,
+      max_tokens: mode === "executive" ? Math.min(settings.maxTokens, 2048) : settings.maxTokens,
+      temperature: mode === "executive" ? 0.3 : settings.temperature,
       messages: [
         { role: "system", content: settings.systemPrompt },
-        { role: "user", content: buildAdvisoryPrompt(articles, formData) },
+        { role: "user", content: buildAdvisoryPrompt(articles, formData, mode) },
       ],
     }),
   });

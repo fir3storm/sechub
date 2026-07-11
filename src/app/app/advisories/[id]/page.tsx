@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { DesignerForm } from "@/components/advisory/DesignerForm";
 import { AIGenerateButton } from "@/components/advisory/AIGenerateButton";
 import { MarkdownPreview } from "@/components/advisory/MarkdownPreview";
-import { AdvisoryTemplateSchema, FormData } from "@/lib/advisory/template";
+import { VersionHistoryPanel } from "@/components/advisory/VersionHistoryPanel";
+import { AdvisoryTemplateSchema, AISummaryMode, FormData } from "@/lib/advisory/template";
 import { ArrowLeft, Download } from "lucide-react";
 
 export default function AdvisoryDetailPage() {
@@ -19,20 +20,33 @@ export default function AdvisoryDetailPage() {
     status: string;
     formData: FormData;
     aiGeneratedContent: string | null;
+    aiSummaryMode: string | null;
     linkedArticleIds: string[];
     updatedAt: string;
-    template: { schema: AdvisoryTemplateSchema } | null;
+    template: { schema: AdvisoryTemplateSchema; name: string } | null;
   } | null>(null);
+  const [linkedTitles, setLinkedTitles] = useState<string[]>([]);
   const [formData, setFormData] = useState<FormData>({});
   const [aiContent, setAiContent] = useState("");
+  const [summaryMode, setSummaryMode] = useState<AISummaryMode>("technical");
 
   useEffect(() => {
     fetch(`/api/advisories/${id}`)
       .then((r) => r.json())
-      .then((data) => {
+      .then(async (data) => {
         setAdvisory(data);
         setFormData(data.formData as FormData);
         setAiContent(data.aiGeneratedContent ?? "");
+        setSummaryMode((data.aiSummaryMode as AISummaryMode) ?? "technical");
+
+        if (data.linkedArticleIds?.length) {
+          const articles = await Promise.all(
+            data.linkedArticleIds.map((aid: string) =>
+              fetch(`/api/news/${aid}`).then((r) => r.json())
+            )
+          );
+          setLinkedTitles(articles.map((a: { title: string }) => a.title));
+        }
       });
   }, [id]);
 
@@ -43,6 +57,7 @@ export default function AdvisoryDetailPage() {
       body: JSON.stringify({
         formData,
         aiGeneratedContent: aiContent,
+        aiSummaryMode: summaryMode,
         status: status ?? advisory?.status,
       }),
     });
@@ -77,14 +92,36 @@ export default function AdvisoryDetailPage() {
         </Link>
       </Button>
 
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">{advisory.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {advisory.status} · Updated {format(new Date(advisory.updatedAt), "PPP")}
+            {advisory.status} · {advisory.template?.name ?? "Template"} · Updated{" "}
+            {format(new Date(advisory.updatedAt), "PPP")}
+            {advisory.aiSummaryMode && (
+              <span className="ml-2 text-violet-400">· AI mode: {advisory.aiSummaryMode}</span>
+            )}
           </p>
         </div>
+        <VersionHistoryPanel advisoryId={advisory.id} onRestore={setAiContent} />
       </div>
+
+      {linkedTitles.length > 0 && (
+        <div className="rounded-sm border border-cyan-500/20 bg-cyan-950/20 p-4">
+          <p className="font-mono-cyber text-[10px] uppercase tracking-wider text-cyan-500/70">
+            Linked articles ({linkedTitles.length})
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-slate-300">
+            {advisory.linkedArticleIds.map((aid, i) => (
+              <li key={aid}>
+                <Link href={`/app/news/${aid}`} className="text-cyan-400 hover:underline">
+                  {linkedTitles[i] ?? aid}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {schema.sections.length > 0 && (
         <DesignerForm schema={schema} formData={formData} onChange={setFormData} />
@@ -93,7 +130,10 @@ export default function AdvisoryDetailPage() {
       <div className="flex flex-wrap gap-3">
         <AIGenerateButton
           advisoryId={advisory.id}
+          linkedArticleIds={advisory.linkedArticleIds}
           formData={formData}
+          summaryMode={summaryMode}
+          onSummaryModeChange={setSummaryMode}
           onGenerated={setAiContent}
         />
         <Button variant="outline" onClick={() => save()}>Save</Button>

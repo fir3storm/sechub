@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { renderAdvisoryPdf } from "@/lib/pdf/advisory-pdf";
+import { getClassificationBanner, type FormData } from "@/lib/advisory/template";
 
 function safeFilename(name: string): string {
   return (name || "advisory")
@@ -41,12 +42,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const author = advisory.createdBy?.name || advisory.createdBy?.email || null;
 
+  const formData = (advisory.formData ?? {}) as FormData;
+  const classification = getClassificationBanner(formData);
+
   const pdf = await renderAdvisoryPdf({
     meta: {
       title: advisory.title,
       status: advisory.status,
       updatedAt: advisory.updatedAt,
       author,
+      classification,
+      generatedAt: new Date(),
     },
     markdown,
   });

@@ -4,6 +4,9 @@ import { auth } from "@/lib/auth";
 import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
+import { snapshotAdvisoryRevision } from "@/lib/advisory/revisions";
+import type { FormData } from "@/lib/advisory/template";
+import { MAX_LINKED_ARTICLES } from "@/lib/advisory/template";
 import { z } from "zod";
 
 export async function GET(req: NextRequest) {
@@ -26,10 +29,11 @@ export async function GET(req: NextRequest) {
 const createSchema = z.object({
   title: z.string().min(1),
   templateId: z.string().optional().nullable(),
-  linkedArticleIds: z.array(z.string()).default([]),
+  linkedArticleIds: z.array(z.string()).max(MAX_LINKED_ARTICLES).default([]),
   formData: z.record(z.union([z.string(), z.array(z.string())])),
   status: z.enum(["draft", "review", "published"]).default("draft"),
   aiGeneratedContent: z.string().optional().nullable(),
+  aiSummaryMode: z.enum(["executive", "technical", "soc_handoff"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,10 +51,21 @@ export async function POST(req: NextRequest) {
       linkedArticleIds: body.linkedArticleIds,
       formData: body.formData,
       aiGeneratedContent: body.aiGeneratedContent,
+      aiSummaryMode: body.aiSummaryMode,
       status: body.status,
       publishedAt: body.status === "published" ? new Date() : null,
       createdById: session.user.id,
     },
+  });
+
+  await snapshotAdvisoryRevision({
+    advisoryId: advisory.id,
+    title: advisory.title,
+    formData: body.formData as FormData,
+    aiGeneratedContent: body.aiGeneratedContent ?? null,
+    changeType: "create",
+    summaryMode: body.aiSummaryMode,
+    createdById: session.user.id,
   });
 
   await writeAuditLog({
