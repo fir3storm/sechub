@@ -5,7 +5,15 @@ import { hasMinRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 import { renderAdvisoryPdf } from "@/lib/pdf/advisory-pdf";
 import { cleanAdvisoryMarkdown, stripLeadingMarkdownTitle } from "@/lib/advisory/markdown";
-import { getClassificationBanner, type FormData } from "@/lib/advisory/template";
+import {
+  AI_SUMMARY_MODE_LABELS,
+  getClassificationBanner,
+  parseRiskRating,
+  THREAT_TYPE_LABELS,
+  type AISummaryMode,
+  type FormData,
+  type ThreatType,
+} from "@/lib/advisory/template";
 
 function safeFilename(name: string): string {
   return (name || "advisory")
@@ -27,7 +35,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const advisory = await prisma.advisory.findUnique({
     where: { id },
-    include: { createdBy: { select: { name: true, email: true } } },
+    include: {
+      createdBy: { select: { name: true, email: true } },
+      template: { select: { name: true, threatType: true } },
+    },
   });
 
   if (!advisory) {
@@ -47,16 +58,38 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const formData = (advisory.formData ?? {}) as FormData;
   const classification = getClassificationBanner(formData);
 
+  const rawThreatType = advisory.template?.threatType;
+  const threatType =
+    rawThreatType && rawThreatType in THREAT_TYPE_LABELS
+      ? THREAT_TYPE_LABELS[rawThreatType as ThreatType]
+      : rawThreatType ?? null;
+
+  const rawSummaryMode = advisory.aiSummaryMode;
+  const summaryMode =
+    rawSummaryMode && rawSummaryMode in AI_SUMMARY_MODE_LABELS
+      ? AI_SUMMARY_MODE_LABELS[rawSummaryMode as AISummaryMode]
+      : rawSummaryMode ?? null;
+
+  const riskRating = parseRiskRating(advisory.aiGeneratedContent ?? "");
+
+  const meta = {
+    title: advisory.title,
+    status: advisory.status,
+    updatedAt: advisory.updatedAt,
+    author,
+    classification,
+    generatedAt: new Date(),
+    advisoryId: advisory.id.slice(0, 8).toUpperCase(),
+    templateName: advisory.template?.name ?? null,
+    threatType,
+    linkedCount: advisory.linkedArticleIds?.length ?? 0,
+    summaryMode,
+    riskRating,
+  };
+
   try {
     const pdf = await renderAdvisoryPdf({
-      meta: {
-        title: advisory.title,
-        status: advisory.status,
-        updatedAt: advisory.updatedAt,
-        author,
-        classification,
-        generatedAt: new Date(),
-      },
+      meta,
       markdown,
     });
 

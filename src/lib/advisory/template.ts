@@ -524,3 +524,44 @@ export function buildTemplatePromptBlock(
 
   return `Use EXACTLY these ## section headings in order (do not skip sections):${typeLine}\n${sections}`;
 }
+
+export type RiskRating = "Critical" | "High" | "Medium" | "Low";
+
+export type BannerColors = { bg: string; border: string; text: string };
+
+const TLP_BANNER_COLORS = {
+  clear: { bg: "#f1f5f9", border: "#94a3b8", text: "#475569" },
+  green: { bg: "#dcfce7", border: "#22c55e", text: "#166534" },
+  amber: { bg: "#fef3c7", border: "#f59e0b", text: "#92400e" },
+  red: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
+} as const satisfies Record<string, BannerColors>;
+
+export function getTlpBannerColors(classification: string): BannerColors {
+  const upper = classification.toUpperCase();
+  if (upper.includes("TLP:CLEAR") || upper.includes("TLP:WHITE")) return TLP_BANNER_COLORS.clear;
+  if (upper.includes("TLP:GREEN")) return TLP_BANNER_COLORS.green;
+  if (upper.includes("TLP:RED")) return TLP_BANNER_COLORS.red;
+  if (upper.includes("TLP:AMBER")) return TLP_BANNER_COLORS.amber;
+  return TLP_BANNER_COLORS.amber;
+}
+
+export function parseRiskRating(text: string): RiskRating | null {
+  if (!text?.trim()) return null;
+  const match = text.match(/Risk\s+Rating\s*:\s*(Critical|High|Medium|Low)\b/i);
+  if (!match) return null;
+  const value = match[1].toLowerCase();
+  return (value.charAt(0).toUpperCase() + value.slice(1)) as RiskRating;
+}
+
+export const RISK_RATING_COLORS: Record<RiskRating, BannerColors> = {
+  Critical: { bg: "#fee2e2", text: "#991b1b", border: "#ef4444" },
+  High: { bg: "#ffedd5", text: "#9a3412", border: "#f97316" },
+  Medium: { bg: "#fef3c7", text: "#92400e", border: "#f59e0b" },
+  Low: { bg: "#dcfce7", text: "#166534", border: "#22c55e" },
+};
+
+export function getRiskRatingColors(rating: string | null): BannerColors | null {
+  if (!rating?.trim()) return null;
+  const normalized = (rating.charAt(0).toUpperCase() + rating.slice(1).toLowerCase()) as RiskRating;
+  return RISK_RATING_COLORS[normalized] ?? null;
+}
